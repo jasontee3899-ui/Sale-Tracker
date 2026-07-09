@@ -1,0 +1,1966 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ThreeMiles Sales Tracker</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0a5c34">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="3M Tracker">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --canvas:#EBEEEF; --surface:#FFFFFF; --ink:#0F1417; --muted:#5C6660;
+    --line:#E0E4E2; --line-strong:#CBD1CD;
+    --green:#0F8A4D; --green-soft:#E4F2EA; --green-deep:#0B6A3B;
+    --gold:#B5821B; --gold-soft:#F6ECD7;
+    --slate:#2F5D8C; --slate-soft:#E5ECF3;
+    --blue:#1B39E8; --blue-soft:#E6E9FD;
+    --danger:#B23A3A; --danger-soft:#F6E6E5;
+    --shadow:0 1px 2px rgba(15,20,23,.04),0 8px 24px rgba(15,20,23,.06);
+    --radius:14px;
+    --disp:'Space Grotesk',system-ui,sans-serif;
+    --ui:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--canvas);color:var(--ink);font-family:var(--ui);
+    font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:20px 18px 80px}
+  .num{font-variant-numeric:tabular-nums}
+  button{font-family:var(--ui);cursor:pointer}
+  h1,h2,h3{margin:0;font-weight:600}
+  a{color:inherit}
+
+  /* header */
+  .brand{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+  .brand .mark{display:flex;align-items:center;gap:11px}
+  .logo{width:38px;height:38px;border-radius:9px;background:var(--ink);color:#fff;
+    display:grid;place-items:center;font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.5px}
+  .logo-img{height:42px;width:auto;display:block}
+  .period-sel{font:inherit;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.10em;
+    color:var(--slate);background:transparent;border:none;border-bottom:1.5px dashed var(--slate);
+    padding:0 2px 1px;cursor:pointer;border-radius:0}
+  .period-sel:focus{outline:none;border-bottom-style:solid}
+  .runrate{margin-top:12px;font-size:12.5px;color:var(--muted);background:var(--green-soft);
+    border-radius:9px;padding:9px 13px;display:none}
+  .runrate.show{display:block}
+  .runrate b{color:var(--green-deep);font-family:var(--disp);font-weight:700}
+  .runrate.done{background:#EAF6EF}
+  .brand h1{font-size:16px;letter-spacing:-.2px}
+  .brand .sub{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.10em;font-weight:600}
+  .hbtns{display:flex;gap:8px}
+  .ghost{background:var(--surface);border:1px solid var(--line-strong);color:var(--ink);
+    padding:8px 12px;border-radius:9px;font-size:12.5px;font-weight:600}
+  .ghost:hover{border-color:var(--ink)}
+
+  /* hero */
+  .hero{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:22px 22px 20px;margin-bottom:14px}
+  .hero-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .hero .label{font-size:11.5px;text-transform:uppercase;letter-spacing:.10em;color:var(--muted);font-weight:600}
+  .hero .big{font-family:var(--disp);font-weight:700;font-size:clamp(34px,7vw,52px);
+    line-height:1;letter-spacing:-1.5px;margin-top:4px}
+  .hero .big .cur{font-size:.5em;color:var(--muted);font-weight:600;margin-right:6px;letter-spacing:0}
+  .goalpill{text-align:right}
+  .goalpill .g{font-family:var(--disp);font-size:20px;font-weight:600;letter-spacing:-.5px}
+  .pct{font-family:var(--disp);font-weight:700;font-size:15px;color:var(--green-deep);
+    background:var(--green-soft);padding:3px 9px;border-radius:999px;display:inline-block}
+
+  /* thermometer */
+  .therm{margin-top:20px}
+  .bar{position:relative;height:26px;border-radius:8px;background:#EFF1F0;overflow:hidden;border:1px solid var(--line)}
+  .seg{position:absolute;top:0;bottom:0;left:0;width:0;transition:width 1.1s cubic-bezier(.22,1,.36,1)}
+  .seg.collected{background:linear-gradient(180deg,#14a35d,#0F8A4D);z-index:2}
+  .seg.forecast{background:repeating-linear-gradient(45deg,#cf9a2a,#cf9a2a 7px,#e0b04a 7px,#e0b04a 14px);z-index:1;opacity:.92}
+  .tick{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--ink);z-index:4;transition:left 1.1s cubic-bezier(.22,1,.36,1)}
+  .tick::after{content:attr(data-l);position:absolute;top:-17px;left:50%;transform:translateX(-50%);
+    font-size:10px;font-weight:700;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:12px}
+  .legend span{display:flex;align-items:center;gap:7px;color:var(--muted);font-weight:500}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .dot.c{background:#0F8A4D}.dot.f{background:#cf9a2a}.dot.g{background:#EFF1F0;border:1px solid var(--line-strong)}
+
+  /* kpi row */
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:15px 16px;box-shadow:var(--shadow)}
+  .kpi .k-lab{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px}
+  .kpi .k-val{font-family:var(--disp);font-weight:600;font-size:22px;letter-spacing:-.5px;margin-top:7px}
+  .kpi .k-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .kpi .k-note{margin-top:9px;padding-top:9px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);line-height:1.4}
+  .kpi .k-note b{font-family:var(--disp);color:var(--green-deep);font-weight:700}
+  /* filter bar */
+  .filterbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+  .filterbar input,.filterbar select{font:inherit;font-size:12.5px;padding:7px 10px;border:1px solid var(--line-strong);
+    border-radius:8px;background:var(--surface);color:var(--ink)}
+  .filterbar input:focus,.filterbar select:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px var(--green-soft)}
+  .filterbar input[type=search]{min-width:180px;flex:1;max-width:280px}
+  .filterbar .fclear{border:1px solid var(--line-strong);background:var(--surface);color:var(--muted);border-radius:8px;padding:7px 11px;font-size:12px;font-weight:600}
+  .filterbar .fclear:hover{border-color:var(--ink);color:var(--ink)}
+  .filterbar .fcount{font-size:11.5px;color:var(--muted);margin-left:auto}
+  .movebtn.kiv{background:#EDEAF2;color:#5B4B8A}
+  .movebtn.kiv:hover{background:#5B4B8A;color:#fff}
+  .movebtn.react{background:var(--green-soft);color:var(--green-deep)}
+  .movebtn.react:hover{background:var(--green);color:#fff}
+  .chip.inactivest{background:#EEF0EF;color:var(--muted)}
+  .chip.kiv{background:#EDEAF2;color:#5B4B8A}
+  .chip.sold{background:var(--danger-soft);color:var(--danger)}
+  .kpi .swatch{width:9px;height:9px;border-radius:50%}
+
+  /* chart */
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:14px}
+  .panel-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .panel-h h2{font-size:14px;letter-spacing:-.1px}
+  .panel-h .hint{font-size:11.5px;color:var(--muted)}
+  .chart{padding:18px 18px 8px}
+  .months{display:flex;align-items:flex-end;gap:8px;height:150px}
+  .mcol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%}
+  .mbar-wrap{width:100%;display:flex;align-items:flex-end;justify-content:center;height:100%;position:relative}
+  .mbar{width:62%;max-width:26px;background:linear-gradient(180deg,#14a35d,#0F8A4D);border-radius:5px 5px 0 0;
+    transition:height 1s cubic-bezier(.22,1,.36,1);min-height:2px;position:relative}
+  .mbar.empty{background:#E7EAE8}
+  .mtarget{position:absolute;left:6%;right:6%;border-top:2px dashed var(--gold);z-index:3}
+  .mlab{font-size:10.5px;color:var(--muted);font-weight:600}
+  .mval{font-size:9.5px;color:var(--green-deep);font-weight:700;font-variant-numeric:tabular-nums;min-height:13px}
+  .mval.zero{color:var(--muted);font-weight:600}
+
+  /* tabs */
+  .tabs{display:flex;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:5px;box-shadow:var(--shadow);margin-bottom:14px;overflow-x:auto}
+  .tab{flex:1;min-width:120px;border:none;background:transparent;padding:10px 12px;border-radius:8px;font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:7px}
+  .tab[aria-selected="true"]{background:var(--ink);color:#fff}
+  .tab .cnt{font-size:11px;background:rgba(0,0,0,.07);border-radius:999px;padding:1px 7px;font-variant-numeric:tabular-nums}
+  .tab[aria-selected="true"] .cnt{background:rgba(255,255,255,.2)}
+
+  /* table */
+  .tablebar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+  .tablebar .sum{font-size:12.5px;color:var(--muted)}
+  .tablebar .sum b{color:var(--ink);font-family:var(--disp)}
+  .actions{display:flex;gap:8px}
+  .add{background:var(--green);color:#fff;border:none;padding:9px 15px;border-radius:9px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px}
+  .add:hover{background:var(--green-deep)}
+  .add svg{width:15px;height:15px}
+  .tbl-scroll{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;padding:11px 14px;border-bottom:1px solid var(--line);white-space:nowrap;background:#FAFBFA}
+  td{padding:12px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+  table.ledger-head th{background:linear-gradient(180deg,#0c7340,#0a5c34);color:#fff;text-transform:none;letter-spacing:0;
+    font-weight:700;font-size:11px;text-align:center;border-bottom:none;
+    border-right:1px solid rgba(255,255,255,.16);line-height:1.25}
+  table.ledger-head th:last-child{border-right:none}
+  tbody tr:hover{background:#FAFBFA}
+  td.money{font-variant-numeric:tabular-nums;font-weight:600}
+  .prop{white-space:normal;min-width:200px;font-weight:600}
+  .chip{font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;display:inline-block}
+  .chip.sale{background:var(--slate-soft);color:var(--slate)}
+  .chip.rent{background:var(--green-soft);color:var(--green-deep)}
+  .chip.high{background:var(--green-soft);color:var(--green-deep)}
+  .chip.medium{background:var(--gold-soft);color:var(--gold)}
+  .chip.low{background:#EEF0EF;color:var(--muted)}
+  .stage{font-size:11px;color:var(--muted);font-weight:500}
+  .rowbtns{display:flex;gap:4px;align-items:center}
+  .movebtn{border:1px solid transparent;border-radius:7px;padding:5px 10px;font-size:11.5px;font-weight:700;
+    display:inline-flex;align-items:center;gap:5px;white-space:nowrap;letter-spacing:.01em}
+  .movebtn svg{width:13px;height:13px}
+  .movebtn.pipe{background:var(--gold-soft);color:var(--gold)}
+  .movebtn.pipe:hover{background:var(--gold);color:#fff}
+  .movebtn.won{background:var(--green-soft);color:var(--green-deep)}
+  .movebtn.won:hover{background:var(--green);color:#fff}
+  .movebtn.back{background:var(--slate-soft);color:var(--slate)}
+  .movebtn.back:hover{background:var(--slate);color:#fff}
+  .iconbtn{border:1px solid var(--line-strong);background:var(--surface);border-radius:7px;padding:5px;display:grid;place-items:center;color:var(--muted)}
+  .iconbtn:hover{color:var(--ink);border-color:var(--ink)}
+  .iconbtn.del:hover{color:var(--danger);border-color:var(--danger)}
+  .iconbtn svg{width:14px;height:14px}
+  .empty{padding:38px 20px;text-align:center;color:var(--muted)}
+  .empty b{display:block;color:var(--ink);margin-bottom:4px;font-size:14px}
+
+  /* inline-editable figures */
+  .cell-edit{font:inherit;font-weight:600;font-variant-numeric:tabular-nums;text-align:right;
+    width:100%;max-width:128px;padding:5px 7px;border:1px solid transparent;border-bottom:1px dashed var(--line-strong);
+    border-radius:6px;background:transparent;color:inherit}
+  .cell-edit:hover{background:#F2F4F3;border-color:var(--line);border-bottom-style:solid}
+  .cell-edit:focus{outline:none;background:#fff;border:1px solid var(--green);box-shadow:0 0 0 3px var(--green-soft)}
+  .cell-edit.pct{max-width:60px}
+  .cell-edit.txt{text-align:left;font-weight:500;max-width:150px}
+  .editwrap{display:inline-flex;align-items:center;gap:3px;justify-content:flex-end}
+  .editwrap .suf{color:var(--muted);font-size:12px;font-weight:600}
+  .cell-select{font:inherit;font-weight:600;border:1px solid transparent;border-bottom:1px dashed var(--line-strong);
+    border-radius:6px;background:transparent;padding:4px 4px;color:inherit;max-width:130px;cursor:pointer}
+  .cell-select:hover{background:#F2F4F3;border-color:var(--line);border-bottom-style:solid}
+  .cell-select:focus{outline:none;background:#fff;border:1px solid var(--green);box-shadow:0 0 0 3px var(--green-soft)}
+  .cell-date{font:inherit;border:1px solid transparent;border-bottom:1px dashed var(--line-strong);border-radius:6px;
+    background:transparent;color:inherit;padding:4px 5px;max-width:138px}
+  .cell-date:hover{background:#F2F4F3;border-color:var(--line);border-bottom-style:solid}
+  .cell-date:focus{outline:none;background:#fff;border:1px solid var(--green);box-shadow:0 0 0 3px var(--green-soft)}
+  .cell-edit.txt.wide{max-width:230px}
+  .cell-edit.sm,.cell-date.sm,.cell-select.sm{font-size:10.5px;font-weight:500}
+  .cell-select.sm{padding:3px 2px}
+  .cell-edit.area{white-space:pre-wrap;word-break:break-word;line-height:1.3;min-height:24px;resize:none;overflow:hidden;text-align:left;font-weight:500}
+  .cell-edit.area.wide{max-width:230px;min-width:160px;font-size:11px;font-weight:600}
+  table.compact .cell-edit.area.wide{max-width:230px;min-width:160px}
+  table.compact .cell-date.sm{font-size:9.5px;max-width:104px;padding:3px 3px}
+  table.fit td{vertical-align:top}
+  table.fit .cell-select.sm{font-size:9.5px;letter-spacing:-.2px}
+  .stagewrap{position:relative;display:block;min-height:22px}
+  .stagelbl{display:block;white-space:normal;word-break:break-word;line-height:1.12;font-size:9.5px;font-weight:600;color:var(--ink);padding:2px 13px 2px 3px}
+  .stagewrap::after{content:'▾';position:absolute;right:3px;top:3px;font-size:8px;color:var(--muted);pointer-events:none}
+  .stageover{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;margin:0;padding:0;font-size:16px}
+  table.fit .cell-edit.area{font-size:10px}
+  .addnote{font-size:12px;color:var(--muted);font-weight:500}
+
+  /* compact tables (forecast + listings) */
+  table.compact{font-size:12px}
+  table.compact th{padding:9px 9px;font-size:10px}
+  table.compact td{padding:7px 9px}
+  table.compact .prop{min-width:140px}
+  table.compact .cell-edit{max-width:104px;padding:3px 5px}
+  table.compact .cell-edit.pct{max-width:48px}
+  table.compact .cell-edit.txt{max-width:118px}
+  table.compact .cell-select{max-width:104px;padding:3px 2px}
+  table.compact .cell-date{max-width:128px;padding:3px 4px;font-size:11.5px}
+  table.compact .cell-date.tiny{font-size:9px}
+  table.compact .cell-edit.txt.wide{max-width:188px}
+  table.compact .movebtn{padding:4px 7px;font-size:10px}
+  table.compact .movebtn svg{width:11px;height:11px}
+  table.compact .iconbtn{padding:4px}
+  table.compact .iconbtn svg{width:12px;height:12px}
+  table.compact .rowbtns{max-width:148px;flex-wrap:wrap;gap:3px}
+  /* fit: fixed layout so the whole table fits within page width */
+  table.fit{table-layout:fixed;width:100%;font-size:11px}
+  table.fit th,table.fit td{padding:5px 5px;overflow:hidden}
+  table.fit th{font-size:9.5px}
+  table.fit .prop{white-space:normal;word-break:break-word;min-width:0;font-size:9px;line-height:1.25}
+  table.fit .cell-edit,table.fit .cell-select,table.fit .cell-date{max-width:100%;width:100%;padding:3px 4px}
+  table.fit .cell-edit.pct{max-width:100%}
+  table.fit .cell-date{font-size:9.5px}
+  table.fit .editwrap{width:100%}
+  table.fit .editwrap input{flex:1;min-width:0}
+  table.fit .rowbtns{max-width:100%;flex-wrap:wrap;gap:2px;justify-content:flex-end}
+  table.fit .movebtn{padding:3px 5px;font-size:9px;gap:3px}
+  table.fit .movebtn svg{width:9px;height:9px}
+  table.fit .iconbtn{padding:3px}
+  table.fit .iconbtn svg{width:11px;height:11px}
+  table.fit.wide{min-width:1180px}                 /* lets percentage columns breathe; .tbl-scroll handles the overflow */
+  table.fit.wide .cell-edit.pct{max-width:100%;width:100%}
+  .prop.narrow{max-width:150px}                     /* wraps into 2–3 lines instead of stretching wide */
+
+  /* deal-cycle panel — moderate / reference only */
+  .cycle{margin-top:16px;padding:15px 16px;background:#F6F7F6;border:1px solid var(--line);border-radius:12px}
+  .cycle-h{display:flex;align-items:baseline;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .cycle-h h3{font-size:12.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .cycle-h .cycle-sub{font-size:11.5px;color:var(--muted)}
+  .cycle-stats{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:4px}
+  .cstat .cl{font-size:11px;color:var(--muted)}
+  .cstat .cv{font-family:var(--disp);font-weight:600;font-size:19px;letter-spacing:-.3px;color:var(--ink)}
+  .cstat .cv .u{font-size:12px;color:var(--muted);font-weight:500;margin-left:3px}
+  .cstat .cn{font-size:10.5px;color:var(--muted)}
+  .cycle details{margin-top:12px}
+  .cycle summary{font-size:11.5px;color:var(--slate);font-weight:600;cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:5px}
+  .cycle summary::-webkit-details-marker{display:none}
+  .cycle summary::before{content:"▸";font-size:10px;transition:transform .15s}
+  .cycle details[open] summary::before{transform:rotate(90deg)}
+  .cycle .tbl-scroll{margin-top:10px;background:var(--surface)}
+  .cycle table{font-size:11.5px}
+  .cycle th{background:#FAFBFA;padding:8px 10px}.cycle td{padding:7px 10px}
+  .daybadge{display:inline-flex;flex-direction:column;align-items:center;line-height:1.15;font-variant-numeric:tabular-nums;font-weight:600;font-size:11.5px;padding:3px 9px;border-radius:10px;background:#EAECEA;color:var(--muted)}
+  .daybadge.has{background:var(--green-soft);color:var(--green-deep)}
+  .daybadge .bd-mo{font-size:9px;font-weight:500;opacity:.7}
+  .dur{display:inline-flex;flex-direction:column;line-height:1.1;font-variant-numeric:tabular-nums;font-weight:600;font-size:12px;color:var(--slate)}
+  .dur small{font-size:9px;font-weight:500;color:var(--muted)}
+  .agentsum{margin-top:10px;padding:9px 13px;background:#F6F7F6;border:1px solid var(--line);border-radius:10px;
+    font-size:11.5px;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px}
+  .agentsum .agl{font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:10.5px;color:var(--muted)}
+  .agentsum .agi{font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
+  .agentsum .agn{color:var(--muted);font-weight:500;margin-right:3px}
+
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(15,20,23,.45);display:none;align-items:flex-end;justify-content:center;z-index:50;padding:0}
+  .overlay.on{display:flex}
+  .sheet{background:var(--surface);width:100%;max-width:560px;border-radius:18px 18px 0 0;max-height:92vh;overflow:auto;
+    animation:rise .28s cubic-bezier(.22,1,.36,1)}
+  @keyframes rise{from{transform:translateY(28px);opacity:.6}to{transform:translateY(0);opacity:1}}
+  .sheet-h{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 6px}
+  .sheet-h h3{font-size:17px;letter-spacing:-.2px}
+  .x{border:none;background:#EEF0EF;width:30px;height:30px;border-radius:50%;font-size:16px;color:var(--muted);display:grid;place-items:center}
+  .x:hover{background:#E2E5E3;color:var(--ink)}
+  form{padding:6px 20px 20px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .field{margin-top:13px}
+  .field label{display:block;font-size:11.5px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+  .field input,.field select{width:100%;padding:11px 12px;border:1px solid var(--line-strong);border-radius:9px;font-size:14px;font-family:var(--ui);background:var(--surface);color:var(--ink)}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px var(--green-soft)}
+  .field .with-cur{position:relative}
+  .field .with-cur input{padding-left:36px}
+  .field .with-cur::before{content:'RM';position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:600;color:var(--muted)}
+  .calc{margin-top:14px;background:var(--green-soft);border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center}
+  .calc .cl{font-size:12px;font-weight:600;color:var(--green-deep);text-transform:uppercase;letter-spacing:.05em}
+  .calc .cv{font-family:var(--disp);font-weight:700;font-size:18px;color:var(--green-deep)}
+  .movehint{margin:6px 0 0;font-size:12.5px;color:var(--muted);background:#F6F7F6;border-left:3px solid var(--line-strong);padding:9px 12px;border-radius:0 8px 8px 0}
+  .save{margin-top:18px;width:100%;background:var(--ink);color:#fff;border:none;padding:14px;border-radius:11px;font-size:14.5px;font-weight:600}
+  .save:hover{background:#000}
+
+  /* toast + loader */
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:11px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:.3s;z-index:80;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .loader{position:fixed;inset:0;background:var(--canvas);display:grid;place-items:center;z-index:100;transition:opacity .4s}
+  .loader.hide{opacity:0;pointer-events:none}
+  /* access gate */
+  .spin{width:34px;height:34px;border:3px solid var(--line-strong);border-top-color:var(--green);border-radius:50%;animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* landing page */
+  .landing{position:fixed;inset:0;background:linear-gradient(160deg,#eef1f0,#e3e7e5);display:flex;align-items:center;justify-content:center;z-index:90;padding:20px}
+  .landing-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 20px 60px rgba(15,20,23,.14);
+    width:100%;max-width:400px;padding:36px 28px 28px;text-align:center}
+  .landing-logo{height:56px;width:auto;display:block;margin:0 auto 16px}
+  .landing-title{font-size:23px;letter-spacing:-.3px}
+  .landing-sub{font-size:12px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:26px}
+  .landing-box{width:100%;background:transparent;border:1.5px dashed var(--line-strong);color:var(--slate);
+    padding:16px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer}
+  .landing-box:hover{border-color:var(--slate);background:var(--slate-soft)}
+
+  /* exit reminder — compact sidebar widget */
+  .exit-banner{position:fixed;right:0;top:50%;transform:translateY(-50%) translateX(0);z-index:30;display:none;
+    flex-direction:column;align-items:center;gap:8px;padding:14px 12px;background:linear-gradient(160deg,#FBE7A1,#F3CE68);
+    border:2px solid var(--gold);border-right:none;border-radius:14px 0 0 14px;box-shadow:-6px 0 20px rgba(15,20,23,.12);
+    animation:ebIn .35s ease}
+  .exit-banner.show{display:flex}
+  @keyframes ebIn{from{transform:translateY(-50%) translateX(100%)}to{transform:translateY(-50%) translateX(0)}}
+  .exit-banner .eb-icon{font-size:18px}
+  .exit-banner .eb-text{font-size:10.5px;font-weight:700;color:#5c4108;line-height:1.2;text-align:center;max-width:64px}
+  .exit-banner button{background:var(--danger);color:#fff;border:none;padding:7px 10px;border-radius:8px;
+    font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(178,58,58,.35)}
+  .exit-banner button:hover{background:#9c3131}
+  @media (max-width:640px){
+    .exit-banner{top:auto;bottom:96px;transform:none;border-radius:14px 0 0 14px}
+    @keyframes ebIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
+  }
+
+  /* remarks hover tooltip */
+  #remarkTip{position:fixed;display:none;z-index:200;background:var(--ink);color:#fff;font-size:11px;font-weight:500;
+    line-height:1.4;padding:10px 13px;border-radius:10px;box-shadow:0 12px 32px rgba(15,20,23,.32);
+    max-width:280px;white-space:pre-wrap;word-break:break-word;pointer-events:none}
+  #remarkTip.show{display:block}
+  #remarkTip.empty{font-style:italic;opacity:.75}
+  #remarkTip .tip-note{margin-top:0.5mm}
+  #remarkTip .tip-note:first-child{margin-top:0}
+
+  /* notes pill + panel */
+  .notes-pill{background:var(--slate-soft);color:var(--slate);border:1px solid transparent;border-radius:8px;
+    padding:5px 9px;font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap}
+  .notes-pill.has{background:var(--green-soft);color:var(--green-deep)}
+  .notes-pill:hover{border-color:currentColor}
+  table.fit .notes-pill{font-size:9.5px;padding:4px 7px}
+  .notes-sheet{max-width:460px}
+  .notes-list{max-height:44vh;overflow-y:auto;padding:0 20px}
+  .note-item{padding:11px 0;border-bottom:1px solid var(--line)}
+  .note-item:last-child{border-bottom:none}
+  .note-meta{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;color:var(--muted);font-weight:600;margin-bottom:4px}
+  .note-meta span{color:var(--green-deep)}
+  .note-meta i{font-style:italic;font-weight:500;opacity:.8;color:var(--muted)}
+  .note-btns{display:flex;gap:2px}
+  .note-edit{background:none;border:none;color:var(--slate);font-size:13px;line-height:1;cursor:pointer;padding:2px 5px}
+  .note-edit:hover{opacity:.7}
+  .note-del{background:none;border:none;color:var(--danger);font-size:16px;line-height:1;cursor:pointer;padding:0 4px}
+  .note-del:hover{opacity:.7}
+  .note-text{font-size:13px;color:var(--ink);line-height:1.5;white-space:pre-wrap;word-break:break-word}
+  .note-edit-area{width:100%;margin-top:2px;padding:8px 10px;border:1px solid var(--green);border-radius:8px;
+    font-size:13px;font-family:var(--ui);color:var(--ink);background:var(--surface);resize:none;
+    box-shadow:0 0 0 3px var(--green-soft)}
+  .note-edit-area:focus{outline:none}
+  .note-edit-btns{display:flex;justify-content:flex-end;gap:6px;margin-top:6px}
+  .note-cancel{background:none;border:1px solid var(--line-strong);color:var(--muted);padding:6px 12px;
+    border-radius:8px;font-size:12px;font-weight:600;cursor:pointer}
+  .note-cancel:hover{background:var(--canvas)}
+  .note-save{background:var(--green-deep);border:none;color:#fff;padding:6px 14px;border-radius:8px;
+    font-size:12px;font-weight:700;cursor:pointer}
+  .note-save:hover{background:#084f2c}
+  .note-empty{font-size:12.5px;color:var(--muted);font-style:italic;padding:8px 0 16px}
+  .notes-add{padding:14px 20px 20px;border-top:1px solid var(--line);margin-top:6px}
+  .notes-add textarea{width:100%;padding:10px 12px;border:1px solid var(--line-strong);border-radius:10px;
+    font-size:13px;font-family:var(--ui);resize:vertical;background:var(--surface);color:var(--ink)}
+  .notes-add textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px var(--green-soft)}
+  .notes-add button{width:100%;margin-top:8px;background:var(--green-deep);color:#fff;border:none;padding:10px;
+    border-radius:9px;font-size:13px;font-weight:700;cursor:pointer}
+  .notes-add button:hover{background:#084f2c}
+  .noteshint{font-size:11.5px;color:var(--muted);font-style:italic;margin:2px 0 4px}
+
+  /* saved records */
+  .rec-sheet{max-width:420px;padding:0}
+  .rec-card{padding:22px 22px 20px;text-align:left}
+  .rec-label{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);
+    border-top:3px solid var(--gold);padding-top:10px;margin-bottom:10px}
+  .rec-desc{font-size:13px;color:var(--muted);line-height:1.5;margin:0 0 18px}
+  .rec-save{width:100%;background:var(--danger);color:#fff;border:none;padding:13px;border-radius:10px;
+    font-size:14px;font-weight:700;cursor:pointer;box-shadow:var(--shadow)}
+  .rec-save:hover{background:#9c3131}
+  .rec-load{width:100%;margin-top:10px;background:transparent;border:1.5px dashed var(--line-strong);color:var(--slate);
+    padding:12px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
+  .rec-load:hover{border-color:var(--slate);background:var(--slate-soft)}
+  .rec-msg{min-height:16px;margin-top:10px;font-size:12px;font-weight:600;color:var(--green-deep)}
+  .rec-lasthead{margin-top:16px;padding-top:14px;border-top:1px solid var(--line);font-size:10px;
+    text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+  .rec-last{margin-top:6px;font-size:12px;color:var(--muted)}
+  .rec-close{width:100%;margin-top:16px;background:none;border:1px solid var(--line-strong);color:var(--ink);
+    padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
+  .rec-close:hover{background:var(--canvas)}
+
+  @media (max-width:720px){
+    .kpis{grid-template-columns:1fr 1fr}
+    .cycle-stats{grid-template-columns:1fr}
+    .grid2{grid-template-columns:1fr}
+    .hero .big{font-size:38px}
+  }
+  @media (max-width:560px){
+    .wrap{padding:14px 12px 90px}
+    .brand{flex-direction:column;align-items:stretch;gap:10px;margin-bottom:14px}
+    .brand .mark{justify-content:space-between}
+    .logo-img{height:36px}
+    .brand h1{font-size:15px}
+    .hbtns{width:100%;flex-wrap:wrap;gap:6px}
+    .hbtns .ghost{flex:1 1 auto;text-align:center;padding:9px 8px;font-size:12px}
+    .kpis{grid-template-columns:1fr;gap:10px}
+    .kpi{padding:13px 14px}
+    .hero{padding:16px 15px}
+    .hero-top{gap:10px}
+    .hero .big{font-size:clamp(30px,10vw,40px)}
+    .runrate{font-size:12px;padding:8px 11px}
+    .chart{padding:14px 12px 6px}
+    .tabs{font-size:12.5px;gap:4px;padding:4px}
+    .tabs button{padding:8px 11px;white-space:nowrap}
+    .filterbar{gap:6px}
+    .filterbar input[type=search]{min-width:0;flex:1 1 100%;max-width:none}
+    .filterbar select{flex:1 1 auto}
+    .filterbar .fcount{margin-left:0;flex-basis:100%}
+    .tablebar{flex-direction:column;align-items:stretch;gap:8px}
+    .tablebar .actions{display:flex}
+    .tablebar .actions .add{width:100%;justify-content:center}
+    .agentsum{font-size:11px;gap:5px 12px}
+    /* wide tables scroll sideways on phone instead of getting crushed */
+    .tbl-scroll{-webkit-overflow-scrolling:touch}
+    table.fit{table-layout:auto;width:auto;min-width:700px}
+    table.fit .cell-edit,table.fit .cell-select,table.fit .cell-date{max-width:130px}
+    table.fit .prop{max-width:150px;font-size:10px}
+    .sheet{max-width:100%}
+    .sheet-h h3{font-size:16px}
+    .landing-card{padding:26px 18px 20px}
+    .scrollhint{display:block}
+  }
+  .scrollhint{display:none;font-size:10.5px;color:var(--muted);margin:0 0 8px;font-style:italic}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="loader" id="loader"><div class="spin"></div></div>
+
+<div class="landing" id="landing">
+  <div class="landing-card">
+    <img class="landing-logo" id="landingLogo" alt="ThreeMiles">
+    <h1 class="landing-title">ThreeMiles</h1>
+    <div class="landing-sub">Sales Tracker</div>
+    <button class="landing-box" id="landingLoadBtn">📂 Load the Recent Records (json)</button>
+    <input type="file" id="landingUpload" accept=".json" style="display:none">
+    <div id="landingMsg" class="rec-msg"></div>
+  </div>
+</div>
+
+<div class="wrap" id="app" style="display:none">
+  <div class="brand">
+    <div class="mark">
+      <img class="logo-img" id="brandLogo" src="data:image/png;base64,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" alt="ThreeMiles logo">
+      <div>
+        <h1>ThreeMiles</h1>
+        <div class="sub">Sales Tracker · <select id="periodSel" class="period-sel" aria-label="Period"></select></div>
+      </div>
+    </div>
+    <div class="hbtns">
+      <button class="ghost" id="editGoal">Edit goal</button>
+      <button class="ghost" id="pdfBtn">⬇ Save as PDF</button>
+      <button class="ghost" id="exportBtn">⬇ Download Excel</button>
+      <button class="ghost" id="importBtn">⬆ Upload Excel</button>
+      <button class="ghost" id="recordsBtn">💾 Save/ Load Records</button>
+      <input type="file" id="excelUpload" accept=".xlsx,.xls" style="display:none">
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-top">
+      <div>
+        <div class="label" id="heroLabel">Fees collected</div>
+        <div class="big"><span class="cur">RM</span><span id="heroCollected" class="num">0</span></div>
+      </div>
+      <div class="goalpill">
+        <div class="label">of annual goal</div>
+        <div class="g num">RM <span id="goalLabel">2,000,000</span></div>
+        <div style="margin-top:6px"><span class="pct" id="heroPct">0%</span></div>
+      </div>
+    </div>
+    <div class="therm">
+      <div class="bar">
+        <div class="seg collected" id="segC"></div>
+        <div class="seg forecast" id="segF"></div>
+      </div>
+      <div class="legend">
+        <span><i class="dot c"></i>Collected <b id="lgC" class="num" style="color:var(--ink);margin-left:2px"></b></span>
+        <span><i class="dot f"></i>Weighted forecast <b id="lgF" class="num" style="color:var(--ink);margin-left:2px"></b></span>
+        <span><i class="dot g"></i>Gap to goal <b id="lgG" class="num" style="color:var(--ink);margin-left:2px"></b></span>
+      </div>
+      <div class="runrate" id="runRate"></div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpis">
+    <div class="kpi">
+      <div class="k-lab"><span class="swatch" style="background:var(--green)"></span>Collected</div>
+      <div class="k-val num" id="kpiCollected">RM 0</div>
+      <div class="k-sub" id="kpiDeals">0 closed deals</div>
+      <div class="k-note" id="kpiClosing"></div>
+    </div>
+    <div class="kpi">
+      <div class="k-lab"><span class="swatch" style="background:var(--gold)"></span>Weighted forecast</div>
+      <div class="k-val num" id="kpiForecast">RM 0</div>
+      <div class="k-sub" id="kpiForecastN">0 in pipeline</div>
+    </div>
+    <div class="kpi">
+      <div class="k-lab"><span class="swatch" style="background:var(--slate)"></span>Potential fees</div>
+      <div class="k-val num" id="kpiPotential">RM 0</div>
+      <div class="k-sub" id="kpiPotentialN">0 listings</div>
+      <div class="k-note" id="kpiPotentialNote"></div>
+    </div>
+  </div>
+
+  <!-- CHART -->
+  <div class="panel">
+    <div class="panel-h">
+      <h2>Monthly collected fees</h2>
+      <div class="hint">Dashed line = RM 166,667 monthly target</div>
+    </div>
+    <div class="chart"><div class="months" id="months"></div></div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="collected" aria-selected="true">Collected fees <span class="cnt" id="cntCollected">0</span></button>
+    <button class="tab" role="tab" data-tab="forecast" aria-selected="false">Forecast pipeline <span class="cnt" id="cntForecast">0</span></button>
+    <button class="tab" role="tab" data-tab="listings" aria-selected="false">Potential listings <span class="cnt" id="cntListings">0</span></button>
+    <button class="tab" role="tab" data-tab="inactive" aria-selected="false">Inactive / KIV / Sold <span class="cnt" id="cntInactive">0</span></button>
+  </div>
+
+  <div id="view"></div>
+  <datalist id="agentList"></datalist>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay">
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<!-- SAVED RECORDS -->
+<div class="overlay" id="recOverlay">
+  <div class="sheet rec-sheet">
+    <div class="rec-card">
+      <div class="rec-label">Save/ Load Records</div>
+      <p class="rec-desc">Save the Updated Copy as a record file. Load it back anytime to amend and re-export.</p>
+      <button class="rec-save" id="recSaveBtn">💾 Saved (json)</button>
+      <button class="rec-load" id="recLoadBtn">Click to load a saved record</button>
+      <input type="file" id="recUpload" accept=".json" style="display:none">
+      <div id="recMsg" class="rec-msg"></div>
+      <div class="rec-lasthead">Last saved on this device</div>
+      <div id="recLast" class="rec-last">No finalized copy saved yet.</div>
+      <button class="rec-close" id="recCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="exit-banner" id="exitBanner">
+  <span class="eb-icon">⚠️</span>
+  <span class="eb-text">Save before exit</span>
+  <button id="ebSaveBtn">💾 Save</button>
+</div>
+
+<div id="remarkTip"></div>
+
+<!-- NOTES -->
+<div class="overlay" id="notesOverlay">
+  <div class="sheet notes-sheet">
+    <div class="sheet-h"><h3 id="notesTitle">Notes</h3><button class="x" onclick="closeNotes()" aria-label="Close">×</button></div>
+    <div id="notesList" class="notes-list"></div>
+    <div class="notes-add">
+      <textarea id="noteInput" rows="2" placeholder="Write a new note…"></textarea>
+      <button id="noteAddBtn" onclick="addNote()">+ Add note</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const KEY='threemiles:data';
+const fmt=n=>Math.round(n||0).toLocaleString('en-MY');
+const fmtRM=n=>'RM '+fmt(n);
+const compact=n=>{n=+n||0;if(!n)return '0';if(n>=1e6)return (n/1e6).toFixed(n>=1e7?0:1).replace(/\.0$/,'')+'M';if(n>=1e3)return Math.round(n/1e3)+'k';return Math.round(n);};
+const dispDate=s=>{if(!s||s==='N/A')return '—';const d=new Date(s);if(isNaN(d))return esc(s);const p=n=>String(n).padStart(2,'0');return p(d.getDate())+'.'+p(d.getMonth()+1)+'.'+d.getFullYear();};
+const monthName=s=>{const i=monthIdx(s);return i>=0?MONTHS[i]:'—';};
+const daysBetween=(a,b)=>{if(!a||!b)return null;const d1=new Date(a),d2=new Date(b);if(isNaN(d1)||isNaN(d2))return null;return Math.round((d2-d1)/86400000);};
+const avgOf=arr=>arr.length?Math.round(arr.reduce((x,y)=>x+y,0)/arr.length):null;
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+let state=null, tab='collected';
+const STAGES=['Prospecting/ Marketing','Negotiation','Viewing 1','Viewing 2','Due Diligence'];
+const STATUSES=['KIV','Inactive','Sold by others'];
+const AGENTS=['Jason','Belle','Treece'];
+let filters={
+  collected:{q:'',agent:'',type:''},
+  forecast:{q:'',type:'',stage:'',ptype:''},
+  listings:{q:'',agent:'',type:'',priority:'',ptype:''},
+  inactive:{q:'',agent:'',status:'',ptype:''}
+};
+function allAgents(){return AGENTS.slice();}
+function refreshAgentList(){}
+
+/* ---------- seed data (your real FY2026 tracker) ---------- */
+const LISTINGS_SEED='list-2026-07-08-v3';
+function seedListings(){
+  return [
+    {id:uid(),prop:'SS145 Lot 1, Lorong 13(4A) Seksyen 13 PJ',type:'Rent',ptype:'Detached Factory',price:82000,rate:100,fee:82000,priority:'High',agent:'Treece',keyin:'2026-07-07'},
+    {id:uid(),prop:'SS144 No. 16, Jalan 51203A Kawasan Perindustrian Tiong Nam',type:'Rent',ptype:'Semi-D Factory',price:45000,rate:100,fee:45000,priority:'High',agent:'Belle',keyin:'2026-06-29'},
+    {id:uid(),prop:'SS143 Lot 1 Jalan Kilang 206 PJ (Intraco)',type:'Sale',ptype:'Detached Factory',price:42000000,rate:3,fee:1260000,priority:'High',agent:'Jason',keyin:'2026-06-27'},
+    {id:uid(),prop:'SS142 23 Jalan 223, PJ KAH MOTOR',type:'Sale',ptype:'Detached Factory',price:0,rate:3,fee:0,priority:'Medium',agent:'Belle',keyin:'2026-06-16'},
+    {id:uid(),prop:'SS141 19 Jalan 223, PJ',type:'Sale',ptype:'Detached Factory',price:20800000,rate:3,fee:624000,priority:'High',agent:'Belle',keyin:'2026-06-16'},
+    {id:uid(),prop:'SS140 76,77 Pulau Indah',type:'Sale',ptype:'Land',price:31000000,rate:0,fee:0,priority:'High',agent:'Treece',keyin:'2026-06-08'},
+    {id:uid(),prop:'SS139 11A, Jalan Bagan Terap',type:'Sale',ptype:'Terrace Factory',price:9000,rate:100,fee:9000,priority:'High',agent:'Belle',keyin:'2026-05-11'},
+    {id:uid(),prop:'SS138 12, Tiong Nam Industrial Park, Seksyen 51, PJ',type:'Sale',ptype:'Semi-D Factory',price:12500000,rate:3,fee:375000,priority:'High',agent:'Treece',keyin:'2026-05-08'},
+    {id:uid(),prop:'SS137 Teluk Intan Land for Sale',type:'Sale',ptype:'Land',price:0,rate:0,fee:0,priority:'High',agent:'Treece',keyin:'2026-05-05'},
+    {id:uid(),prop:'SS136 One Damansara Condo Block B',type:'Sale',ptype:'Condominium',price:380000,rate:3,fee:11400,priority:'High',agent:'Treece',keyin:'2026-04-16'},
+    {id:uid(),prop:'SS135 PT161 Klang',type:'Sale',ptype:'Land',price:100000000,rate:3,fee:3000000,priority:'High',agent:'Jason',keyin:'2026-03-30'},
+    {id:uid(),prop:'SS134 C6, 1, Jalan Ampang Utama 1-1',type:'Sale',ptype:'Shop Lot',price:18500,rate:100,fee:18500,priority:'High',agent:'Jason',keyin:'2026-03-26'},
+    {id:uid(),prop:'SS133 (59) Jalan Taman Bukit Rawang',type:'Sale',ptype:'Landed House',price:750,rate:100,fee:750,priority:'High',agent:'Jason',keyin:'2026-03-25'},
+    {id:uid(),prop:'SS132 Menara Star 2 PJ',type:'Sale',ptype:'Tower',price:180000000,rate:3,fee:5400000,priority:'High',agent:'Treece',keyin:'2026-03-16'},
+    {id:uid(),prop:'SS131 Seberang Prai Giant',type:'Sale',ptype:'Land',price:0,rate:0,fee:0,priority:'High',agent:'Treece',keyin:'2025-03-16'},
+    {id:uid(),prop:'SS130 Bibi Nasi Kandar Kota Kemuning',type:'Sale',ptype:'',price:0,rate:0,fee:0,priority:'High',agent:'Treece',keyin:'2026-03-12'},
+    {id:uid(),prop:'SS129 Lot 30662 Jalan Rawang Mutiara 3 (Mazda 3S)',type:'Sale',ptype:'Detached Showroom',price:15000000,rate:3,fee:450000,priority:'High',agent:'Belle',keyin:'2026-03-06'},
+    {id:uid(),prop:'SS128 MRSB Tangkak',type:'Sale',ptype:'Land',price:12800000,rate:3,fee:384000,priority:'High',agent:'Treece',keyin:'2026-03-04'},
+    {id:uid(),prop:'SS127 114,115,116 - Jalan PJS 33, Taman Medan PJ',type:'Sale',ptype:'Terrace Factory',price:0,rate:0,fee:0,priority:'Medium',agent:'Jason',keyin:'2026-03-03'},
+    {id:uid(),prop:'SS126 Lot 12 Jalan 19-1 Seksyen 19 PJ',type:'Sale',ptype:'Detached Factory',price:65000000,rate:3,fee:1950000,priority:'High',agent:'Belle',keyin:'2026-02-26'},
+    {id:uid(),prop:'SS125 Lot 5 & 7 Jalan 223 PJ',type:'Sale',ptype:'Detached Factory',price:50000000,rate:0,fee:0,priority:'Medium',agent:'Treece',keyin:'2026-02-09'},
+    {id:uid(),prop:'SS124 No.6 Jalan Para - Metropolitan Business Park U8',type:'Sale',ptype:'Semi-D Factory',price:6050000,rate:3,fee:181500,priority:'Medium',agent:'Jason',keyin:'2026-02-03'},
+    {id:uid(),prop:'SS123 No.9, Jalan Tun Seri Lanang 1KU16, Perdana Industrial Park',type:'Sale',ptype:'',price:0,rate:0,fee:0,priority:'Medium',agent:'',keyin:'2026-01-23'},
+    {id:uid(),prop:'SS122 No 17 & 19 Jalan Astaka Bukit Jelutong (A)',type:'Sale',ptype:'Semi-D Factory',price:8800000,rate:3,fee:264000,priority:'High',agent:'Jason',keyin:'2026-02-09'},
+    {id:uid(),prop:'SS122 No 17 & 19 Jalan Astaka Bukit Jelutong (B)',type:'Sale',ptype:'Semi-D Factory',price:12800000,rate:3,fee:384000,priority:'High',agent:'Jason',keyin:'2026-02-09'},
+    {id:uid(),prop:'SS121 No.14 Jalan Para - Metropolitan Business Park U8',type:'Sale',ptype:'Semi-D Factory',price:7850000,rate:3,fee:235500,priority:'High',agent:'Jason',keyin:'2026-02-03'},
+    {id:uid(),prop:'SS120 No. 5 Jalan 51A_243 PJ',type:'Sale',ptype:'Detached Factory',price:17000000,rate:0,fee:0,priority:'High',agent:'Belle',keyin:'2026-03-02'},
+    {id:uid(),prop:'SS119 Lot 2B_ Jalan Kilang 51 PJ (Philips Service Centre)',type:'Rent',ptype:'Warehouse',price:25000,rate:100,fee:25000,priority:'High',agent:'Jason',keyin:'2026-01-09'},
+    {id:uid(),prop:'SS118 12A Jln 51@225A PJ',type:'Sale',ptype:'Semi-D Factory',price:12000000,rate:3,fee:360000,priority:'High',agent:'Belle',keyin:'2025-12-17'},
+    {id:uid(),prop:'SS117 Bentong Land by SMG',type:'Sale',ptype:'Land',price:0,rate:2,fee:0,priority:'High',agent:'Treece',keyin:'2025-11-14'},
+    {id:uid(),prop:'SS116 Bagan Terap (Unit 19 & 21)',type:'Sale',ptype:'Terrace Factory',price:6600000,rate:0,fee:0,priority:'High',agent:'Belle',keyin:'2025-11-13'},
+    {id:uid(),prop:'SS115 Temasya Land for Sale',type:'Sale',ptype:'',price:0,rate:0,fee:0,priority:'',agent:'',keyin:''},
+    {id:uid(),prop:'SS114 No. 3_Jln Bersatu 13_4 Granics Holding',type:'Sale',ptype:'Detached Factory',price:60000000,rate:3,fee:1800000,priority:'High',agent:'Belle',keyin:'2025-10-30'},
+    {id:uid(),prop:'SS113 No 13 Jalan U115 Hicom Glenmarie',type:'Sale',ptype:'Land',price:25000000,rate:0,fee:0,priority:'Medium',agent:'',keyin:'2025-10-23'},
+    {id:uid(),prop:'SS112 Lot 4 Jalan Teluk Pulai 27 88_Seksyen 27_Shah Alam',type:'Sale',ptype:'',price:0,rate:0,fee:0,priority:'',agent:'',keyin:'2025-10-10'},
+    {id:uid(),prop:'SS111 Kota Kemuning Chin Hin Group',type:'Sale',ptype:'',price:0,rate:0,fee:0,priority:'',agent:'',keyin:'2025-09-26'},
+    {id:uid(),prop:'SS110 No. 62A Jalan Jernai 2_Medan Idaman',type:'Sale',ptype:'',price:0,rate:0,fee:0,priority:'',agent:'',keyin:'2025-09-08'},
+    {id:uid(),prop:'SS109 No. 62 Jalan Jernai 2_Medan Idaman',type:'Sale',ptype:'',price:0,rate:0,fee:0,priority:'',agent:'',keyin:'2025-09-08'},
+    {id:uid(),prop:'SS108 No. 60 Jalan Jernai 2_Medan Idaman',type:'Sale',ptype:'',price:0,rate:0,fee:0,priority:'',agent:'',keyin:'2025-09-08'},
+    {id:uid(),prop:'SS107 Magilds Industrial Park, Sungai Buloh',type:'Sale',ptype:'Warehouse',price:6000000,rate:2,fee:120000,priority:'Medium',agent:'Belle',keyin:'2026-01-19'},
+    {id:uid(),prop:'SS106 Star Business Hub',type:'Sale',ptype:'Detached Factory',price:68000000,rate:0,fee:0,priority:'Medium',agent:'Treece',keyin:'2025-09-05'},
+    {id:uid(),prop:'SS105 Hicom Glenmarie U1 (78)_ 11',type:'Sale',ptype:'Terrace Factory',price:0,rate:0,fee:0,priority:'High',agent:'',keyin:'2025-08-12'},
+    {id:uid(),prop:'SS104 No 11 PJ51 Business Park (Superseded)',type:'Sale',ptype:'Semi-D Factory',price:10300000,rate:3,fee:309000,priority:'Medium',agent:'Belle',keyin:'2025-12-16'},
+    {id:uid(),prop:'SS104 No. 11 PJ51 Business Park',type:'Sale',ptype:'Semi-D Factory',price:10300000,rate:3,fee:309000,priority:'Medium',agent:'Belle',keyin:'2025-12-16'},
+    {id:uid(),prop:'SS103 No.2 Jalan Astana 1E KU5 Bkt Raja ✘',type:'Sale',ptype:'',price:0,rate:0,fee:0,priority:'',agent:'',keyin:''},
+    {id:uid(),prop:'SS102 Lot 18_ Jalan Pelukis U1_46',type:'Sale',ptype:'Warehouse',price:48000000,rate:3,fee:1440000,priority:'Medium',agent:'Treece',keyin:'2025-09-05'},
+    {id:uid(),prop:'SS101 Methodist Church, Penang Island',type:'Sale',ptype:'Land',price:70000000,rate:3,fee:2100000,priority:'High',agent:'Treece',keyin:'2025-10-23'},
+    {id:uid(),prop:'SS100 Temasya Glenmarie_ 3 Jalan Pemberita U1-49',type:'Sale',ptype:'Semi-D Factory',price:14000000,rate:0,fee:0,priority:'Medium',agent:'Jason',keyin:'2025-07-04'},
+    {id:uid(),prop:'SS099 Wisma Wan Kien_ 51 PJ',type:'Sale',ptype:'',price:0,rate:0,fee:0,priority:'',agent:'',keyin:''},
+    {id:uid(),prop:'SS098 Lot 2A_ Jalan Kilang 51 PJ (Philips Service Centre)',type:'Rent',ptype:'Warehouse',price:38300,rate:100,fee:38300,priority:'High',agent:'Belle',keyin:'2025-08-01'},
+    {id:uid(),prop:'SS097 No 12 PJ51 Business Park',type:'Sale',ptype:'Semi-D Factory',price:8350000,rate:3,fee:250500,priority:'High',agent:'Belle',keyin:'2025-07-19'},
+    {id:uid(),prop:'SS096 Lot 15 Jalan Pelukis U1_46_Shah Alam (PT 15988)',type:'Rent',ptype:'Detached Factory',price:200000,rate:100,fee:200000,priority:'Medium',agent:'',keyin:'2025-07-02'},
+    {id:uid(),prop:'SS095 Jalan 225_PJ (Lot 8233)',type:'Sale',ptype:'Detached Factory',price:0,rate:0,fee:0,priority:'Medium',agent:'Belle',keyin:'2025-06-12'},
+    {id:uid(),prop:'SS094 Temasya Glenmarie_ 30 (Jalan U1-49)',type:'Sale',ptype:'Semi-D Factory',price:7800000,rate:3,fee:234000,priority:'Medium',agent:'Belle',keyin:'2025-06-20'},
+    {id:uid(),prop:'SS093 Lot 39, Lorong Kilang B (Snowflake)',type:'Rent',ptype:'Detached Factory',price:50000,rate:100,fee:50000,priority:'High',agent:'Treece',keyin:'2025-08-01'},
+    {id:uid(),prop:'SS092 Jalan PJU 1A_12 (22)',type:'Rent',ptype:'',price:8800,rate:100,fee:8800,priority:'Medium',agent:'',keyin:'2025-04-28'},
+    {id:uid(),prop:'SS091 Taman Perindustrian Subang_40',type:'Rent',ptype:'',price:15000,rate:100,fee:15000,priority:'Medium',agent:'',keyin:'2025-04-20'},
+    {id:uid(),prop:'SS090 Jalan Tandang Petaling Jaya_12K',type:'Sale',ptype:'Semi-D Factory',price:8600000,rate:2,fee:172000,priority:'High',agent:'Jason',keyin:'2025-05-22'},
+    {id:uid(),prop:'SS087 Tmn Perindustrian Semanja Puncak Alam',type:'Sale',ptype:'Land',price:0,rate:0,fee:0,priority:'High',agent:'Treece',keyin:'2025-04-20'},
+    {id:uid(),prop:'SS086 Desa Tun Razak Industrial Park (12A & 16)',type:'Sale',ptype:'Detached Factory',price:6500000,rate:3,fee:195000,priority:'High',agent:'Treece',keyin:'2025-12-13'},
+    {id:uid(),prop:'SS085 Lorong 13_4A_Seksyen 13_PJ',type:'Sale',ptype:'Land',price:47000000,rate:3,fee:1410000,priority:'High',agent:'Treece',keyin:'2025-12-31'},
+    {id:uid(),prop:'SS082 Jalan Kartunis U1_47 (26)',type:'Sale',ptype:'Semi-D Factory',price:7800000,rate:0,fee:0,priority:'Medium',agent:'Belle',keyin:'2025-06-17'},
+    {id:uid(),prop:'SS078 Jalan Apollo Subang 2',type:'Rent',ptype:'',price:0,rate:0,fee:0,priority:'',agent:'',keyin:'2025-03-12'},
+    {id:uid(),prop:'SS071 15,17 Jalan Bagan Terap',type:'Rent',ptype:'Terrace Factory',price:17000,rate:100,fee:17000,priority:'High',agent:'Belle',keyin:'2025-11-14'},
+    {id:uid(),prop:'SS058 No. 4 Jalan U1(77) Hicom Glenmarie',type:'Sale',ptype:'Detached Factory',price:1810000,rate:2,fee:36200,priority:'Medium',agent:'Belle',keyin:'2025-03-27'},
+    {id:uid(),prop:'SS042 Lot 2A Jln Tandang',type:'Sale',ptype:'Semi-D Factory',price:9000000,rate:2,fee:180000,priority:'Medium',agent:'Belle',keyin:'2025-06-10'},
+    {id:uid(),prop:'SS041 Lot 2n Jln Tandang',type:'Sale',ptype:'Semi-D Factory',price:10000000,rate:2,fee:200000,priority:'Medium',agent:'Belle',keyin:'2025-05-25'},
+  ];
+}
+function seed(){
+  return {
+    goal:2000000,
+    collected:[
+      {id:uid(),prop:'SS106 Star Business Hub',agent:'Jason',type:'Sale',atp:'2025-11-17',spa:'2026-01-19',handover:'2026-05-15',gross:732000,referral:18000,fee:717210,date:'2026-02-12',remarks:''},
+      {id:uid(),prop:'SS116 Bagan Terap (Unit)',agent:'Jason',type:'Sale',atp:'2026-02-06',spa:'2026-03-09',handover:'2026-05-06',gross:106814.81,referral:0,fee:104528.52,date:'2026-03-19',remarks:''},
+      {id:uid(),prop:'SS097 No 12 PJ51 Business',agent:'Belle',type:'Sale',atp:'2026-03-06',spa:'2026-05-14',handover:'',gross:196000,referral:0,fee:165875,date:'2026-05-22',remarks:''},
+      {id:uid(),prop:'SS133 (59) Jalan Taman',agent:'Belle',type:'Rent',atp:'2026-02-23',spa:'2026-05-01',handover:'2026-04-23',gross:750,referral:0,fee:600,date:'2026-05-22',remarks:''},
+      {id:uid(),prop:'SS134 C6, 1, Jalan Ampang',agent:'Belle',type:'Rent',atp:'2026-03-30',spa:'2026-04-09',handover:'2026-04-12',gross:18500,referral:0,fee:14800,date:'2026-04-15',remarks:''},
+      {id:uid(),prop:'SS119 Lot 2B, Jalan Kilang',agent:'Belle',type:'Rent',atp:'2026-03-03',spa:'2026-03-24',handover:'2026-03-26',gross:29303.75,referral:500,fee:29218.6,date:'2026-03-31',remarks:''},
+      {id:uid(),prop:'SS101 Methodist Church',agent:'Belle',type:'Sale',atp:'',spa:'',handover:'',gross:10000,referral:0,fee:9000,date:'2026-06-10',remarks:''},
+    ],
+    forecast:[
+      {id:uid(),prop:'SS071 15,17 Jalan Bagan',type:'Rent',value:17000,grossEst:17000,prob:10,close:'',stage:'Viewing',remarks:''},
+      {id:uid(),prop:'SS085 Lorong 13/4A Section',type:'Sale',value:47000000,grossEst:940000,prob:20,close:'',stage:'Viewing',remarks:''},
+      {id:uid(),prop:'SS101 Methodist Church',type:'Sale',value:70000000,grossEst:875000,prob:50,close:'',stage:'Proposal Sent',remarks:''},
+      {id:uid(),prop:'SS138 12, Tiong Nam Ind',type:'Sale',value:12500000,grossEst:250000,prob:50,close:'',stage:'Proposal Sent',remarks:''},
+    ],
+    listings:seedListings(),
+    inactive:[],
+    listingsSeed:LISTINGS_SEED
+  };
+}
+
+/* ---------- storage (Claude artifact storage, or localStorage when self-hosted) ---------- */
+/* ---------- central shared storage ----------
+   Pick ONE option to make all users share ONE central dataset (next person always
+   sees the latest). Leave both blank to store only on this device.
+   Setup steps for both are in README.md.
+
+   Option 1 — GOOGLE DRIVE (via a Google Apps Script web app): paste its /exec URL.
+   Option 2 — SUPABASE (free database): paste project URL + anon key. */
+const GAS={ url:'' };                 // Google Apps Script Web App URL (data stored as a file in your Google Drive)
+const CLOUD={ url:'', anonKey:'' };   // Supabase project URL + anon key
+let _sb=null;
+function gasOn(){return !!GAS.url;}
+function cloudOn(){return !!(CLOUD.url&&CLOUD.anonKey&&window.supabase&&window.supabase.createClient);}
+function centralOn(){return gasOn()||cloudOn();}
+function sb(){if(!_sb&&cloudOn())_sb=window.supabase.createClient(CLOUD.url,CLOUD.anonKey);return _sb;}
+async function gasGet(k){
+  const r=await fetch(GAS.url+'?key='+encodeURIComponent(k),{method:'GET'});
+  const j=await r.json();
+  return (j&&j.value!=null&&j.value!=='')?j.value:null;
+}
+async function gasSet(k,val){
+  await fetch(GAS.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:k,value:val})});
+}
+const store={
+  async get(k){
+    const remote=gasOn()?'gas':(cloudOn()?'sb':null);
+    if(remote){
+      try{
+        let v=null;
+        if(remote==='gas')v=await gasGet(k);
+        else{const {data,error}=await sb().from('kv').select('value').eq('key',k).maybeSingle();if(error)throw error;v=data?data.value:null;}
+        if(v!=null){try{localStorage.setItem(k,v);}catch(_){} return {key:k,value:v};}
+        throw {_empty:true};                     // remote reachable but empty -> treat as fresh
+      }catch(e){
+        if(e&&e._empty)throw new Error('not found');
+        const cv=localStorage.getItem(k);        // remote unreachable -> use local cache
+        if(cv!=null)return {key:k,value:cv};
+        throw new Error('not found');
+      }
+    }
+    if(typeof window!=='undefined'&&window.storage&&window.storage.get)return await window.storage.get(k);
+    const v=localStorage.getItem(k);
+    if(v===null)throw new Error('not found');
+    return {key:k,value:v};
+  },
+  async set(k,val){
+    try{localStorage.setItem(k,val);}catch(_){}  // local cache / offline copy
+    if(gasOn()){try{await gasSet(k,val);return {key:k,value:val};}catch(e){}}
+    else if(cloudOn()){try{await sb().from('kv').upsert({key:k,value:val,updated_at:new Date().toISOString()});return {key:k,value:val};}catch(e){}}
+    if(typeof window!=='undefined'&&window.storage&&window.storage.set)return await window.storage.set(k,val);
+    return {key:k,value:val};
+  }
+};
+async function load(){
+  try{const r=await store.get(KEY);state=JSON.parse(r.value);}
+  catch(e){state=seed();await save();}
+  if(!state.collected)state.collected=[];
+  if(!state.forecast)state.forecast=[];
+  if(!state.listings)state.listings=[];
+  if(!state.inactive)state.inactive=[];
+  if(!state.accessLog)state.accessLog=[];
+  if(state.gatePassword===undefined)state.gatePassword='33633';
+  if(state.period===undefined)state.period=new Date().getFullYear();
+  if(state.listingsSeed!==LISTINGS_SEED){state.listings=seedListings();state.listingsSeed=LISTINGS_SEED;await save();}
+}
+async function save(){
+  try{await store.set(KEY,JSON.stringify(state));}
+  catch(e){toast('Could not save — try again');}
+}
+
+/* ---------- calcs ---------- */
+const yearOf=d=>{const x=new Date(d);return isNaN(x)?null:x.getFullYear();};
+const inPeriod=c=>state.period==='all'||yearOf(c.date)===state.period;
+const colList=()=>state.collected.filter(inPeriod);
+const availableYears=()=>{const s=new Set();state.collected.forEach(c=>{const y=yearOf(c.date);if(y)s.add(y);});
+  s.add(new Date().getFullYear());if(typeof state.period==='number')s.add(state.period);return [...s].sort((a,b)=>b-a);};
+const sumCollected=()=>colList().reduce((a,b)=>a+(+b.fee||0),0);
+const weighted=f=>(+f.grossEst||0)*(+f.prob||0)/100;
+const sumForecast=()=>state.forecast.reduce((a,b)=>a+weighted(b),0);
+const sumPotential=()=>state.listings.reduce((a,b)=>a+(+b.fee||0),0);
+const effPri=l=>l.priority||'Medium';
+const sumPotentialHM=()=>state.listings.reduce((a,l)=>a+((effPri(l)==='High'||effPri(l)==='Medium')?(+l.fee||0):0),0);
+const countHM=()=>state.listings.filter(l=>effPri(l)==='High'||effPri(l)==='Medium').length;
+function monthIdx(dstr){const d=new Date(dstr);return isNaN(d)?-1:d.getMonth();}
+function paceStatus(){
+  const now=new Date(),curY=now.getFullYear(),p=state.period;
+  let elapsed,remaining;
+  if(p==='all'){elapsed=now.getMonth()+1;remaining=0;}
+  else if(p===curY){elapsed=now.getMonth()+1;remaining=12-now.getMonth();}
+  else if(p<curY){elapsed=12;remaining=0;}
+  else {elapsed=0;remaining=12;}
+  const expected=state.goal/12*elapsed;
+  const diff=sumCollected()-expected;
+  return {diff,expected,elapsed,remaining};
+}
+
+/* ---------- render dashboard ---------- */
+function renderDash(){
+  if(document.getElementById('periodSel'))renderPeriodOptions();
+  const col=sumCollected(),fc=sumForecast(),pot=sumPotential(),goal=state.goal;
+  const periodTxt=state.period==='all'?'all years':'FY '+state.period;
+  document.getElementById('heroLabel').textContent='Fees collected · '+periodTxt;
+  document.getElementById('heroCollected').textContent=fmt(col);
+  document.getElementById('goalLabel').textContent=fmt(goal);
+  document.getElementById('heroPct').textContent=(col/goal*100).toFixed(1)+'%';
+  const cPct=Math.min(100,col/goal*100), fPct=Math.min(100-cPct,fc/goal*100);
+  requestAnimationFrame(()=>{
+    document.getElementById('segC').style.width=cPct+'%';
+    document.getElementById('segF').style.width=fPct+'%';
+    document.getElementById('segF').style.left=cPct+'%';
+  });
+  document.getElementById('lgC').textContent='RM '+fmt(col);
+  document.getElementById('lgF').textContent='RM '+fmt(fc);
+  const gap=Math.max(0,goal-col-fc);
+  document.getElementById('lgG').textContent='RM '+fmt(gap);
+
+  // run-rate: monthly target to close the gap over remaining months
+  const p=paceStatus();
+  const rr=document.getElementById('runRate');
+  const shortfall=Math.max(0,goal-col); // real fees still to collect
+  if(state.period!=='all'&&p.remaining>0&&shortfall>0){
+    const perMo=shortfall/p.remaining;
+    rr.className='runrate show';
+    rr.innerHTML=`To hit the RM ${fmt(goal)} goal, collect <b>RM ${fmt(perMo)}/mo</b> across the ${p.remaining} remaining month${p.remaining!=1?'s':''} of ${state.period} · still to collect <b>RM ${fmt(shortfall)}</b>`;
+  }else if(shortfall<=0){
+    rr.className='runrate show done';
+    rr.innerHTML=`Goal reached for ${periodTxt} — <b>RM ${fmt(col)}</b> collected against the RM ${fmt(goal)} target.`;
+  }else{rr.className='runrate';rr.innerHTML='';}
+
+  // kpis
+  document.getElementById('kpiCollected').textContent=fmtRM(col);
+  const nDeals=colList().length;
+  document.getElementById('kpiDeals').textContent=nDeals+' closed deal'+(nDeals!=1?'s':'');
+  document.getElementById('kpiForecast').textContent=fmtRM(fc);
+  document.getElementById('kpiForecastN').textContent=state.forecast.length+' in pipeline';
+  document.getElementById('kpiPotential').textContent=fmtRM(sumPotentialHM());
+  document.getElementById('kpiPotentialN').textContent=countHM()+' High/Medium listings';
+  document.getElementById('kpiPotentialNote').innerHTML='Counts High &amp; Medium priority only — Low-priority listings are excluded.';
+
+  // closing rate = collected / total listing value (potential target fees + forecast gross fee est + collected)
+  const fcGross=state.forecast.reduce((a,b)=>a+(+b.grossEst||0),0);
+  const totalListingValue=pot+fcGross+col;
+  const cl=document.getElementById('kpiClosing');
+  if(totalListingValue>0){
+    const rate=col/totalListingValue*100;
+    cl.innerHTML=`<b>${rate.toFixed(1)}%</b> closing rate — collected vs total listing value of RM ${fmt(totalListingValue)}<br><span style="opacity:.85">= collected ÷ (potential target fees + forecast gross est. + collected)</span>`;
+  }else cl.innerHTML='';
+
+  // counts (totals across all data, not period-filtered)
+  document.getElementById('cntCollected').textContent=state.collected.length;
+  document.getElementById('cntForecast').textContent=state.forecast.length;
+  document.getElementById('cntListings').textContent=state.listings.length;
+  const ci=document.getElementById('cntInactive');if(ci)ci.textContent=state.inactive.length;
+
+  renderMonths();
+}
+function renderMonths(){
+  const byM=Array(12).fill(0);
+  colList().forEach(c=>{const i=monthIdx(c.date);if(i>=0)byM[i]+=(+c.fee||0);});
+  const target=state.goal/12;
+  const max=Math.max(target*1.15,...byM);
+  const host=document.getElementById('months');host.innerHTML='';
+  byM.forEach((v,i)=>{
+    const h=max?v/max*100:0, th=max?target/max*100:0;
+    const col=document.createElement('div');col.className='mcol';
+    col.innerHTML=`<div class="mval ${v?'':'zero'}">${compact(v)}</div>
+      <div class="mbar-wrap">
+        <div class="mtarget" style="bottom:${th}%"></div>
+        <div class="mbar ${v?'':'empty'}" style="height:0"></div>
+      </div>
+      <div class="mlab">${MONTHS[i]}</div>`;
+    host.appendChild(col);
+    requestAnimationFrame(()=>{col.querySelector('.mbar').style.height=Math.max(h,v?3:1)+'%';});
+  });
+}
+
+/* ---------- render tables ---------- */
+const ICON_EDIT='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+const ICON_DEL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
+const ICON_PLUS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>';
+const ICON_ARR='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+const ICON_ARRL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>';
+
+function chip(t,cls){return `<span class="chip ${cls}">${t}</span>`;}
+function editNum(kind,id,field,val,suf){
+  const display=suf?(val==null?0:val):fmt(val);
+  const onfocus=suf?'this.select()':"this.value=this.value.replace(/,/g,'');this.select()";
+  const inp=`<input class="cell-edit ${suf?'pct':''}" inputmode="decimal" value="${display}" onfocus="${onfocus}" onchange="cellEdit('${kind}','${id}','${field}',this.value)" aria-label="${field}">`;
+  return suf?`<span class="editwrap">${inp}<span class="suf">${suf}</span></span>`:inp;
+}
+function editSelect(kind,id,field,val,options,colorMap,cls){
+  const col=colorMap&&colorMap[val]?`style="color:${colorMap[val]}"`:'';
+  return `<select class="cell-select ${cls||''}" ${col} onchange="cellSet('${kind}','${id}','${field}',this.value)">${options.map(o=>`<option ${o===val?'selected':''}>${o}</option>`).join('')}</select>`;
+}
+function notesCell(kind,id,row){
+  const has=notesOf(row).length>0;
+  return `<button type="button" class="notes-pill ${has?'has':''}" onclick="openNotes('${kind}','${id}')"
+    onmouseenter="showNotesTip(this,'${kind}','${id}')" onmouseleave="hideRemarkTip()">${notesLabel(row)}</button>`;
+}
+function editArea(kind,id,field,val,cls){
+  return `<textarea class="cell-edit area ${cls||'sm'}" rows="1" oninput="autoGrow(this)" onchange="cellSet('${kind}','${id}','${field}',this.value)" aria-label="${field}">${esc(val||'')}</textarea>`;
+}
+function editStage(kind,id,val){
+  const cur=val||'Viewing 1';
+  const opts=STAGES.map(o=>`<option ${o===cur?'selected':''}>${o}</option>`).join('');
+  return `<span class="stagewrap"><span class="stagelbl">${esc(cur)}</span><select class="stageover" onchange="cellSet('${kind}','${id}','stage',this.value)" aria-label="stage">${opts}</select></span>`;
+}
+function autoGrow(el){el.style.height='auto';el.style.height=(el.scrollHeight+2)+'px';}
+function sizeAreas(){document.querySelectorAll('#view .cell-edit.area').forEach(autoGrow);}
+/* notes: each row's `remarks` is an array of {id,ts,text} — separate, timestamped entries.
+   Legacy string values are normalized (read-only) into a single unlabeled entry. */
+function notesOf(row){
+  if(!row)return [];
+  if(Array.isArray(row.remarks))return row.remarks;
+  if(row.remarks)return [{id:'legacy',ts:null,text:String(row.remarks)}];
+  return [];
+}
+function notesText(row){
+  const ns=notesOf(row).slice().sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
+  if(!ns.length)return '';
+  return ns.map(n=>(n.ts?fmtDT(n.ts)+' — ':'')+n.text).join('\n\n');
+}
+function notesTipHtml(row){
+  const ns=notesOf(row).slice().sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
+  if(!ns.length)return '';
+  return ns.map(n=>`<div class="tip-note">${n.ts?'✓ '+esc(fmtDT(n.ts))+' — ':''}${esc(n.text)}</div>`).join('');
+}
+function showNotesTip(el,kind,id){
+  const tip=document.getElementById('remarkTip');if(!tip)return;
+  const row=find(kind,id);
+  const html=notesTipHtml(row);
+  tip.innerHTML=html||'No remarks';
+  tip.classList.toggle('empty',!html);
+  tip.classList.add('show');
+  const r=el.getBoundingClientRect();
+  const bw=tip.offsetWidth,bh=tip.offsetHeight;
+  let left=r.left,top=r.bottom+6;
+  if(left+bw>window.innerWidth-8)left=window.innerWidth-bw-8;
+  if(left<8)left=8;
+  if(top+bh>window.innerHeight-8)top=r.top-bh-6;
+  if(top<8)top=8;
+  tip.style.left=left+'px';tip.style.top=top+'px';
+}
+let notesTarget=null;
+function notesLabel(row){const n=notesOf(row).length;return n?('🗒 '+n+' note'+(n!==1?'s':'')):'+ Note';}
+function openNotes(kind,id){
+  notesTarget={kind,id};
+  noteEditingId=null;
+  renderNotesPanel();
+  document.getElementById('notesOverlay').classList.add('on');
+  setTimeout(()=>{const t=document.getElementById('noteInput');if(t)t.focus();},100);
+}
+function closeNotes(){document.getElementById('notesOverlay').classList.remove('on');notesTarget=null;}
+let noteEditingId=null;
+function renderNotesPanel(){
+  if(!notesTarget)return;
+  const row=find(notesTarget.kind,notesTarget.id);
+  const list=row?notesOf(row).slice().sort((a,b)=>(b.ts||'').localeCompare(a.ts||'')):[];
+  const body=list.length?list.map(n=>{
+    if(n.id===noteEditingId){
+      return `
+    <div class="note-item">
+      <div class="note-meta"><span>${n.ts?'✓ '+esc(fmtDT(n.ts)):'Earlier note'}</span></div>
+      <textarea class="note-edit-area" id="noteEditArea">${esc(n.text)}</textarea>
+      <div class="note-edit-btns">
+        <button class="note-cancel" onclick="cancelEditNote()">Cancel</button>
+        <button class="note-save" onclick="saveEditNote('${n.id}')">Save</button>
+      </div>
+    </div>`;
+    }
+    return `
+    <div class="note-item">
+      <div class="note-meta"><span>${n.ts?'✓ '+esc(fmtDT(n.ts)):'Earlier note'}${n.edited?' <i>(edited)</i>':''}</span>
+        <span class="note-btns">
+          <button class="note-edit" onclick="startEditNote('${n.id}')" aria-label="Edit note">✎</button>
+          <button class="note-del" onclick="deleteNote('${n.id}')" aria-label="Delete note">×</button>
+        </span></div>
+      <div class="note-text">${esc(n.text)}</div>
+    </div>`;
+  }).join(''):'<div class="note-empty">No notes yet — add the first one below.</div>';
+  document.getElementById('notesTitle').textContent='Notes · '+(row?row.prop:'');
+  document.getElementById('notesList').innerHTML=body;
+  if(noteEditingId){
+    const ta=document.getElementById('noteEditArea');
+    if(ta){autoGrow(ta);ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);}
+  }
+}
+function startEditNote(noteId){noteEditingId=noteId;renderNotesPanel();}
+function cancelEditNote(){noteEditingId=null;renderNotesPanel();}
+function normalizeNoteText(s){
+  return (s||'').replace(/[ \t]+\n/g,'\n').replace(/\n{2,}/g,'\n').trim();
+  // collapses any blank-line gaps WITHIN a single note — a lengthy note stays as
+  // continuous lines with no extra vertical spacing, however long it runs.
+}
+async function saveEditNote(noteId){
+  if(!notesTarget)return;
+  const ta=document.getElementById('noteEditArea');
+  const text=normalizeNoteText(ta.value);
+  if(!text)return;
+  const row=find(notesTarget.kind,notesTarget.id);if(!row)return;
+  const arr=notesOf(row).map(n=>n.id===noteId?{...n,text,edited:new Date().toISOString()}:n);
+  row.remarks=arr;
+  noteEditingId=null;
+  await save();
+  renderNotesPanel();renderView();
+}
+async function addNote(){
+  if(!notesTarget)return;
+  const ta=document.getElementById('noteInput');
+  const text=normalizeNoteText(ta.value);
+  if(!text)return;
+  const row=find(notesTarget.kind,notesTarget.id);if(!row)return;
+  const arr=notesOf(row).slice();
+  arr.push({id:uid(),ts:new Date().toISOString(),text});
+  row.remarks=arr;
+  ta.value='';
+  await save();
+  renderNotesPanel();renderView();
+}
+async function deleteNote(noteId){
+  if(!notesTarget)return;
+  const row=find(notesTarget.kind,notesTarget.id);if(!row)return;
+  row.remarks=notesOf(row).filter(n=>n.id!==noteId);
+  await save();
+  renderNotesPanel();renderView();
+}
+function showRemarkTip(el,textOverride){
+  const tip=document.getElementById('remarkTip');if(!tip)return;
+  const val=(textOverride!=null?textOverride:(el.value||'')).trim();
+  tip.textContent=val||'No remarks';
+  tip.classList.toggle('empty',!val);
+  tip.classList.add('show');
+  const r=el.getBoundingClientRect();
+  const bw=tip.offsetWidth,bh=tip.offsetHeight;
+  let left=r.left,top=r.bottom+6;
+  if(left+bw>window.innerWidth-8)left=window.innerWidth-bw-8;
+  if(left<8)left=8;
+  if(top+bh>window.innerHeight-8)top=r.top-bh-6;
+  if(top<8)top=8;
+  tip.style.left=left+'px';tip.style.top=top+'px';
+}
+function hideRemarkTip(){const tip=document.getElementById('remarkTip');if(tip)tip.classList.remove('show');}
+const REMARK_TIP_ATTRS='onmouseenter="showRemarkTip(this)" onmouseleave="hideRemarkTip()" onfocus="showRemarkTip(this)" onblur="hideRemarkTip()"';
+function editAgent(kind,id,val,cls){
+  const opts=['',...AGENTS];
+  return `<select class="cell-select ${cls||''}" onchange="cellSet('${kind}','${id}','agent',this.value)" aria-label="agent">${opts.map(o=>`<option value="${esc(o)}" ${o===(val||'')?'selected':''}>${o||'—'}</option>`).join('')}</select>`;
+}
+function editText(kind,id,field,val,cls){
+  return `<input class="cell-edit txt ${cls||''}" type="text" value="${esc(val||'')}" onchange="cellSet('${kind}','${id}','${field}',this.value)" placeholder="—" aria-label="${field}">`;
+}
+function editDate(kind,id,field,val,cls){
+  return `<input class="cell-date ${cls||''}" type="date" value="${esc(val||'')}" onchange="cellSet('${kind}','${id}','${field}',this.value)" aria-label="${field}">`;
+}
+const ssNum=p=>{const m=/SS\s*0*(\d+)/i.exec(p||'');return m?parseInt(m[1],10):-1;};
+const bySsDesc=(a,b)=>ssNum(b.prop)-ssNum(a.prop)||String(a.prop||'').localeCompare(String(b.prop||''));
+async function cellEdit(kind,id,field,raw){
+  const item=find(kind,id);if(!item)return;
+  let v=parseFloat(String(raw).replace(/[, ]/g,''));if(isNaN(v))v=0;
+  item[field]=v;
+  if(kind==='listings'&&(field==='price'||field==='rate'))
+    item.fee=Math.round((+item.price||0)*(+item.rate||0)/100);
+  await save();renderDash();renderView();
+}
+async function cellSet(kind,id,field,raw){
+  const item=find(kind,id);if(!item)return;
+  item[field]=raw;
+  await save();renderDash();renderView();
+}
+function rowBtns(kind,id,move){return `<div class="rowbtns">
+  ${move||''}
+  <button class="iconbtn" onclick="openForm('${kind}','${id}')" aria-label="Edit">${ICON_EDIT}</button>
+  <button class="iconbtn del" onclick="del('${kind}','${id}')" aria-label="Delete">${ICON_DEL}</button></div>`;}
+const moveToPipeline=id=>`<button class="movebtn pipe" onclick="toPipeline('${id}')" title="Move to Forecast Pipeline">Pipeline ${ICON_ARR}</button>`;
+const moveToCollected=id=>`<button class="movebtn won" onclick="toCollected('${id}')" title="Won — move to Collected Fees">Won ${ICON_ARR}</button>`;
+const moveToListings=id=>`<button class="movebtn back" onclick="toListingsBack('${id}')" title="Won't convert — move back to Potential Listings">${ICON_ARRL} Potential</button>`;
+const moveToInactive=id=>`<button class="movebtn kiv" onclick="toInactive('${id}')" title="Move to Inactive / KIV / Sold by others">Inactive</button>`;
+const reactivate=id=>`<button class="movebtn react" onclick="toActive('${id}')" title="Move back to Potential Listings">${ICON_ARRL} Reactivate</button>`;
+
+function renderView(){
+  const v=document.getElementById('view');
+  if(tab==='collected')v.innerHTML=tblCollected();
+  if(tab==='forecast')v.innerHTML=tblForecast();
+  if(tab==='listings')v.innerHTML=tblListings();
+  if(tab==='inactive')v.innerHTML=tblInactive();
+  refreshAgentList();sizeAreas();
+}
+function setFilter(t,key,val,isSearch){
+  filters[t][key]=val;renderView();
+  if(isSearch){const el=document.getElementById('flt_'+t+'_q');if(el){el.focus();const x=el.value;el.value='';el.value=x;}}
+}
+function clearFilters(t){Object.keys(filters[t]).forEach(k=>filters[t][k]='');renderView();}
+function applyFilters(t,rows){
+  const f=filters[t];const q=(f.q||'').toLowerCase();
+  return rows.filter(r=>{
+    if(q && !(String(r.prop||'').toLowerCase().includes(q)))return false;
+    if(f.agent && (r.agent||'')!==f.agent)return false;
+    if(f.type && (r.type||'')!==f.type)return false;
+    if(f.priority && (r.priority||'')!==f.priority)return false;
+    if(f.stage && (r.stage||'')!==f.stage)return false;
+    if(f.status && (r.status||'')!==f.status)return false;
+    if(f.ptype && (r.ptype||'')!==f.ptype)return false;
+    return true;
+  });
+}
+function ptypesOf(list){return [...new Set((list||[]).map(x=>(x.ptype||'').trim()).filter(Boolean))].sort();}
+function fSearch(t){return `<input type="search" id="flt_${t}_q" placeholder="Search property…" value="${esc(filters[t].q)}" oninput="setFilter('${t}','q',this.value,true)">`;}
+function fSelect(t,key,label,options){
+  return `<select onchange="setFilter('${t}','${key}',this.value)"><option value="">${label}</option>${options.map(o=>`<option value="${esc(o)}" ${filters[t][key]===o?'selected':''}>${esc(o)}</option>`).join('')}</select>`;}
+function filterBar(t,controls,shown,total){
+  const active=Object.values(filters[t]).some(v=>v);
+  return `<div class="filterbar">${controls}${active?`<button class="fclear" onclick="clearFilters('${t}')">Clear</button>`:''}<span class="fcount">${shown} of ${total}</span></div>`;
+}
+function shell(title,total,kind,head,body,cls,colgroup){
+  const action=kind==='listings'
+    ? `<button class="add" onclick="openForm('listings')">${ICON_PLUS} Add listing</button>`
+    : kind==='forecast'
+      ? `<span class="addnote">Deals move in from Potential Listings →</span>`
+      : kind==='inactive'
+        ? `<span class="addnote">Listings move here from Potential Listings</span>`
+        : `<span class="addnote">Deals move in when marked Won in the pipeline →</span>`;
+  const sumLine=kind==='inactive'
+    ? `${title} · <b>${state.inactive.length}</b> listing${state.inactive.length!=1?'s':''}`
+    : `${title} · <b>RM ${fmt(total)}</b>`;
+  return `<div class="tablebar">
+    <div class="sum">${sumLine}</div>
+    <div class="actions">${action}</div>
+  </div>
+  <div class="scrollhint">← swipe the table sideways to see all columns →</div>
+  <div class="tbl-scroll"><table class="${cls||''}">${colgroup||''}<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+function cols(widths){return '<colgroup>'+widths.map(w=>`<col style="width:${w}%">`).join('')+'</colgroup>';}
+function emptyRow(span,msg){return `<tr><td colspan="${span}"><div class="empty"><b>Nothing here yet</b>${msg}</div></td></tr>`;}
+
+function tblCollected(){
+  const head=`<th>No. #</th><th>Listing Ref # /<br>Property Name</th><th>Agent Incharge</th><th>Transaction Type</th><th>ATP/ ATR Date</th><th>SPA/ TA Stamp Date</th><th>Handover Date</th><th>Gross Commission Income<br>GCI (MYR)</th><th>Referral Fee (MYR)</th><th>Fee Collected (MYR)</th><th>Date Collected</th><th>Month</th><th>Remarks</th><th></th>`;
+  const all=colList().slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const rows=applyFilters('collected',all);
+  const fb=filterBar('collected',fSearch('collected')+fSelect('collected','agent','All agents',allAgents())+fSelect('collected','type','All types',['Sale','Rent']),rows.length,all.length);
+  const body=rows.length?rows.map((c,i)=>`<tr>
+    <td class="num" style="text-align:center;color:var(--muted)">${i+1}</td>
+    <td>${editArea('collected',c.id,'prop',c.prop,'wide')}</td>
+    <td>${editAgent('collected',c.id,c.agent,'sm')}</td>
+    <td>${editSelect('collected',c.id,'type',c.type,['Sale','Rent'],{Sale:'var(--slate)',Rent:'var(--green-deep)'})}</td>
+    <td>${editDate('collected',c.id,'atp',c.atp,'sm')}</td>
+    <td>${editDate('collected',c.id,'spa',c.spa,'sm')}</td>
+    <td>${editDate('collected',c.id,'handover',c.handover,'sm')}</td>
+    <td>${editNum('collected',c.id,'gross',c.gross)}</td>
+    <td>${editNum('collected',c.id,'referral',c.referral)}</td>
+    <td style="color:var(--green-deep)">${editNum('collected',c.id,'fee',c.fee)}</td>
+    <td>${editDate('collected',c.id,'date',c.date,'tiny')}</td>
+    <td style="text-align:center">${monthName(c.date)}</td>
+    <td>${notesCell('collected',c.id,c)}</td>
+    <td>${rowBtns('collected',c.id)}</td></tr>`).join(''):emptyRow(14,all.length?'No rows match the filter.':(state.period==='all'?'Add your first closed deal, or move one in from the pipeline.':`No fees collected with a ${state.period} date yet.`));
+  return fb+shell('Collected fees',sumCollected(),'collected',head,body,'ledger-head compact')+agentSummary()+cycleSection();
+}
+function agentSummary(){
+  const m={},t={Sale:0,Rent:0};let referral=0;
+  colList().forEach(c=>{const a=(c.agent||'').trim()||'Unassigned';m[a]=(m[a]||0)+(+c.gross||0);
+    if(c.type==='Rent')t.Rent+=(+c.gross||0);else t.Sale+=(+c.gross||0);
+    referral+=(+c.referral||0);});
+  const entries=Object.entries(m).sort((x,y)=>y[1]-x[1]);
+  if(!entries.length)return '';
+  const items=entries.map(([a,v])=>`<span class="agi"><span class="agn">${esc(a)}</span> RM ${fmt(v)}</span>`).join('');
+  const byType=`<span class="agi"><span class="agn">Sale</span> RM ${fmt(t.Sale)}</span><span class="agi"><span class="agn">Rent</span> RM ${fmt(t.Rent)}</span><span class="agi" style="margin-left:8px"><span class="agn">Total Referral Fee Paid</span> RM ${fmt(referral)}</span>`;
+  return `<div class="agentsum"><span class="agl">GCI by agent in charge</span>${items}</div>
+    <div class="agentsum"><span class="agl">GCI by transaction type</span>${byType}</div>`;
+}
+const toMonths=n=>(n/30.44).toFixed(1);
+function dayBadge(n){return n==null?'<span class="daybadge">—</span>':`<span class="daybadge has">${n} d<span class="bd-mo">${toMonths(n)} mo</span></span>`;}
+function cycleSection(){
+  const rows=colList().slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const toAtp=[],toStamp=[],toHand=[],toColl=[];
+  rows.forEach(c=>{
+    const ka=daysBetween(c.keyin,c.atp),s=daysBetween(c.atp,c.spa),h=daysBetween(c.atp,c.handover),k=daysBetween(c.atp,c.date);
+    if(ka!=null)toAtp.push(ka);if(s!=null)toStamp.push(s);if(h!=null)toHand.push(h);if(k!=null)toColl.push(k);
+  });
+  const stat=(lab,arr)=>{const a=avgOf(arr);return `<div class="cstat">
+    <div class="cl">Avg ${lab}</div>
+    <div class="cv">${a==null?'—':a}<span class="u">${a==null?'':'days'}</span></div>
+    <div class="cn">${a==null?'no dates yet':'≈ '+toMonths(a)+' months · '+arr.length+' deal'+(arr.length!=1?'s':'')}</div></div>`;};
+  const trows=rows.map((c,i)=>`<tr>
+    <td class="num" style="text-align:center;color:var(--muted)">${i+1}</td>
+    <td class="prop">${esc(c.prop)}</td>
+    <td style="text-align:center">${dayBadge(daysBetween(c.keyin,c.atp))}</td>
+    <td style="text-align:center">${dayBadge(daysBetween(c.atp,c.spa))}</td>
+    <td style="text-align:center">${dayBadge(daysBetween(c.atp,c.handover))}</td>
+    <td style="text-align:center">${dayBadge(daysBetween(c.atp,c.date))}</td></tr>`).join('');
+  const tbl=rows.length?`<div class="tbl-scroll">
+    <table><thead><tr><th>No.</th><th>Property</th><th style="text-align:center">Key-in → ATP/ATR</th><th style="text-align:center">ATP → SPA/TA stamp</th><th style="text-align:center">ATP → Handover</th><th style="text-align:center">ATP → Fee collected</th></tr></thead>
+    <tbody>${trows}</tbody></table></div>`:'';
+  return `<div class="cycle">
+    <div class="cycle-h"><h3>Deal cycle</h3><span class="cycle-sub">For reference · key-in lead time, then time elapsed from the ATP/ATR date</span></div>
+    <div class="cycle-stats">${stat('key-in → ATP/ATR',toAtp)}${stat('ATP → SPA/TA stamp',toStamp)}${stat('ATP → handover',toHand)}${stat('ATP → fee collected',toColl)}</div>
+    ${tbl}
+  </div>`;
+}
+function tblForecast(){
+  const head=`<th>Property</th><th>Type</th><th>Property type</th><th>Est. value</th><th>Gross fee est.</th><th>Prob.</th><th>Weighted fee</th><th>Stage</th><th>Key in Date</th><th>Remarks</th><th></th>`;
+  const all=state.forecast.slice().sort(bySsDesc);
+  const rows=applyFilters('forecast',all);
+  const fb=filterBar('forecast',fSearch('forecast')+fSelect('forecast','type','All types',['Sale','Rent'])+fSelect('forecast','ptype','All property types',ptypesOf(all))+fSelect('forecast','stage','All stages',STAGES),rows.length,all.length);
+  const cg=cols([14,6,9,9,9,5,9,9,8,9,13]);
+  const body=rows.length?rows.map(f=>`<tr>
+    <td class="prop">${esc(f.prop)}</td>
+    <td>${editSelect('forecast',f.id,'type',f.type,['Sale','Rent'],{Sale:'var(--slate)',Rent:'var(--green-deep)'})}</td>
+    <td>${editText('forecast',f.id,'ptype',f.ptype,'sm')}</td>
+    <td>${editNum('forecast',f.id,'value',f.value)}</td>
+    <td>${editNum('forecast',f.id,'grossEst',f.grossEst)}</td>
+    <td>${editNum('forecast',f.id,'prob',f.prob,'%')}</td>
+    <td class="money" style="color:var(--gold)">${fmt(weighted(f))}</td>
+    <td>${editStage('forecast',f.id,f.stage)}</td>
+    <td>${editDate('forecast',f.id,'keyin',f.keyin,'sm')}</td>
+    <td>${notesCell('forecast',f.id,f)}</td>
+    <td>${rowBtns('forecast',f.id,moveToListings(f.id)+moveToCollected(f.id))}</td></tr>`).join(''):emptyRow(11,all.length?'No rows match the filter.':'Move a listing here from Potential Listings once it gains traction.');
+  return fb+shell('Weighted forecast',sumForecast(),'forecast',head,body,'compact fit',cg);
+}
+function tblListings(){
+  const head=`<th>Property</th><th>Type</th><th>Property type</th><th>Asking price</th><th>Fee rate</th><th>Target fee</th><th>Priority</th><th>Agent</th><th>Key in Date</th><th>Remarks</th><th></th>`;
+  const all=state.listings.slice().sort(bySsDesc);
+  const rows=applyFilters('listings',all);
+  const fb=filterBar('listings',fSearch('listings')+fSelect('listings','agent','All agents',AGENTS)+fSelect('listings','type','All types',['Sale','Rent'])+fSelect('listings','ptype','All property types',ptypesOf(all))+fSelect('listings','priority','All priorities',['High','Medium','Low','Zero']),rows.length,all.length);
+  const cg=cols([10,6,9,10,9,10,8,8,9,10,11]);
+  const body=rows.length?rows.map(l=>`<tr>
+    <td class="prop narrow">${esc(l.prop)}</td>
+    <td>${editSelect('listings',l.id,'type',l.type,['Sale','Rent'],{Sale:'var(--slate)',Rent:'var(--green-deep)'})}</td>
+    <td>${editText('listings',l.id,'ptype',l.ptype,'sm')}</td>
+    <td>${editNum('listings',l.id,'price',l.price)}</td>
+    <td>${editNum('listings',l.id,'rate',l.rate,'%')}</td>
+    <td style="color:var(--slate)">${editNum('listings',l.id,'fee',l.fee)}</td>
+    <td>${editSelect('listings',l.id,'priority',l.priority||'Medium',['High','Medium','Low','Zero'],{High:'var(--green-deep)',Medium:'var(--gold)',Low:'var(--muted)',Zero:'#9aa3a0'})}</td>
+    <td>${editAgent('listings',l.id,l.agent,'sm')}</td>
+    <td>${editDate('listings',l.id,'keyin',l.keyin,'sm')}</td>
+    <td>${notesCell('listings',l.id,l)}</td>
+    <td>${rowBtns('listings',l.id,moveToPipeline(l.id)+moveToInactive(l.id))}</td></tr>`).join(''):emptyRow(11,all.length?'No rows match the filter.':'Add listings you are working to win.');
+  return fb+shell('Potential target fees',sumPotential(),'listings',head,body,'compact fit wide',cg)+prioritySummary();
+}
+function prioritySummary(){
+  const m={High:0,Medium:0,Low:0,Zero:0};
+  state.listings.forEach(l=>{const p=effPri(l);if(m[p]==null)m[p]=0;m[p]+=(+l.fee||0);});
+  const hm=m.High+m.Medium;
+  return `<div class="agentsum">
+    <span class="agl">Target fee by priority</span>
+    <span class="agi"><span class="agn">High</span> RM ${fmt(m.High)}</span>
+    <span class="agi"><span class="agn">Medium</span> RM ${fmt(m.Medium)}</span>
+    <span class="agi"><span class="agn">Low</span> RM ${fmt(m.Low)}</span>
+    <span class="agi"><span class="agn">Zero</span> RM ${fmt(m.Zero)}</span>
+    <span class="agi" style="margin-left:8px"><span class="agn">High + Medium</span> RM ${fmt(hm)}</span>
+  </div>`;
+}
+function tblInactive(){
+  const head=`<th>Property</th><th>Status</th><th>Type</th><th>Property type</th><th>Asking price</th><th>Target fee</th><th>Agent</th><th>Remarks</th><th></th>`;
+  const all=state.inactive.slice().sort(bySsDesc);
+  const rows=applyFilters('inactive',all);
+  const fb=filterBar('inactive',fSearch('inactive')+fSelect('inactive','status','All status',STATUSES)+fSelect('inactive','agent','All agents',AGENTS)+fSelect('inactive','ptype','All property types',ptypesOf(all)),rows.length,all.length);
+  const cg=cols([17,12,8,13,12,12,8,10,8]);
+  const body=rows.length?rows.map(l=>`<tr>
+    <td class="prop">${esc(l.prop)}</td>
+    <td>${editSelect('inactive',l.id,'status',l.status||'KIV',STATUSES)}</td>
+    <td>${editSelect('inactive',l.id,'type',l.type,['Sale','Rent'],{Sale:'var(--slate)',Rent:'var(--green-deep)'})}</td>
+    <td>${editText('inactive',l.id,'ptype',l.ptype,'sm')}</td>
+    <td>${editNum('inactive',l.id,'price',l.price)}</td>
+    <td style="color:var(--slate)">${editNum('inactive',l.id,'fee',l.fee)}</td>
+    <td>${editAgent('inactive',l.id,l.agent,'sm')}</td>
+    <td>${notesCell('inactive',l.id,l)}</td>
+    <td>${rowBtns('inactive',l.id,reactivate(l.id))}</td></tr>`).join(''):emptyRow(9,all.length?'No rows match the filter.':'Move a listing here from Potential Listings using the “Inactive” button.');
+  return fb+shell('Inactive / KIV / Sold by others',0,'inactive',head,body,'compact fit',cg);
+}
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+/* ---------- forms ---------- */
+const overlay=document.getElementById('overlay'),sheet=document.getElementById('sheet');
+function closeForm(){overlay.classList.remove('on');pendingMove=null;moveCarry=null;}
+overlay.addEventListener('click',e=>{if(e.target===overlay)closeForm();});
+document.getElementById('notesOverlay').addEventListener('click',e=>{if(e.target.id==='notesOverlay')closeNotes();});
+
+function field(label,id,opts={}){
+  const {type='text',val='',cur=false,select=null,step='any',ph=''}=opts;
+  if(select){return `<div class="field"><label>${label}</label><select id="${id}">${select.map(o=>`<option ${o===val?'selected':''}>${o}</option>`).join('')}</select></div>`;}
+  const inp=`<input id="${id}" type="${type}" step="${step}" value="${esc(val)}" placeholder="${ph}">`;
+  return `<div class="field"><label>${label}</label>${cur?`<div class="with-cur">${inp}</div>`:inp}</div>`;
+}
+function gv(id){const e=document.getElementById(id);return e?e.value.trim():'';}
+function gn(id){return parseFloat(gv(id))||0;}
+
+let pendingMove=null;
+function openForm(kind,id,prefill,moveFrom){
+  const editing=id?find(kind,id):null;
+  pendingMove=moveFrom||null;
+  const base=o=>Object.assign(o,editing||prefill||{});
+  let html='';
+  if(kind==='collected'){
+    const c=base({type:'Sale',date:new Date().toISOString().slice(0,10)});
+    const title=editing?'Edit collected fee':(moveFrom?'Mark deal as won':'New collected fee');
+    html=`<h3>${title}</h3>
+      ${moveFrom?'<p class="movehint">Confirm the actual fee collected and the date — this deal leaves the pipeline.</p>':''}
+      ${field('Listing ref / property','f_prop',{val:c.prop,ph:'e.g. SS106 Star Business Hub'})}
+      <div class="grid2">
+        ${field('Agent in charge','f_agent',{val:c.agent||'',select:['','Jason','Belle','Treece']})}
+        ${field('Transaction type','f_type',{val:c.type||'Sale',select:['Sale','Rent']})}
+      </div>
+      <div class="grid2">
+        ${field('Key in date','f_keyin',{type:'date',val:c.keyin})}
+        ${field('ATP / ATR date','f_atp',{type:'date',val:c.atp})}
+      </div>
+      <div class="grid2">
+        ${field('SPA / TA stamp date','f_spa',{type:'date',val:c.spa})}
+        ${field('Handover date','f_handover',{type:'date',val:c.handover})}
+      </div>
+      <div class="grid2">
+        ${field('Date collected','f_date',{type:'date',val:c.date})}
+        ${field('Fee collected','f_fee',{type:'number',val:c.fee,cur:true})}
+      </div>
+      <div class="grid2">
+        ${field('Gross Commission Income (GCI)','f_gross',{type:'number',val:c.gross,cur:true})}
+        ${field('Referral fee','f_referral',{type:'number',val:c.referral,cur:true})}
+      </div>
+      <p class="noteshint">🗒 Add dated notes anytime using the Notes button in the table.</p>`;
+  }
+  if(kind==='forecast'){
+    const f=base({type:'Sale',prob:30,stage:'Viewing 1'});
+    const title=editing?'Edit forecast deal':(moveFrom?'Move listing to pipeline':'New forecast deal');
+    html=`<h3>${title}</h3>
+      ${moveFrom?'<p class="movehint">Set how likely this is to convert — it moves out of Potential Listings.</p>':''}
+      ${field('Listing ref / property','f_prop',{val:f.prop})}
+      <div class="grid2">
+        ${field('Transaction type','f_type',{val:f.type||'Sale',select:['Sale','Rent']})}
+        ${field('Property type','f_ptype',{val:f.ptype,ph:'e.g. Warehouse'})}
+      </div>
+      <div class="grid2">
+        ${field('Stage','f_stage',{val:f.stage||'Viewing 1',select:STAGES})}
+        ${field('Key in date','f_keyin',{type:'date',val:f.keyin})}
+      </div>
+      <div class="grid2">
+        ${field('Est. property value','f_value',{type:'number',val:f.value,cur:true})}
+        ${field('Gross fee estimate','f_grossEst',{type:'number',val:f.grossEst,cur:true})}
+      </div>
+      ${field('Probability %','f_prob',{type:'number',val:f.prob,step:'1',ph:'0–100'})}
+      ${field('Expected close','f_close',{val:f.close,ph:'e.g. Aug 2026'})}
+      <p class="noteshint">🗒 Add dated notes anytime using the Notes button in the table.</p>
+      <div class="calc"><span class="cl">Weighted fee</span><span class="cv" id="calcOut">RM 0</span></div>`;
+  }
+  if(kind==='listings'){
+    const l=base({type:'Sale',priority:'High',rate:2,keyin:new Date().toISOString().slice(0,10)});
+    const title=editing?'Edit potential listing':'New potential listing';
+    html=`<h3>${title}</h3>
+      ${field('Listing ref / property','f_prop',{val:l.prop})}
+      <div class="grid2">
+        ${field('Transaction type','f_type',{val:l.type||'Sale',select:['Sale','Rent']})}
+        ${field('Property type','f_ptype',{val:l.ptype,ph:'e.g. Warehouse'})}
+      </div>
+      <div class="grid2">
+        ${field('Key in date','f_keyin',{type:'date',val:l.keyin})}
+        ${field('Fee rate %','f_rate',{type:'number',val:l.rate,ph:'e.g. 2'})}
+      </div>
+      <div class="grid2">
+        ${field('Asking price','f_price',{type:'number',val:l.price,cur:true})}
+        ${field('Priority','f_priority',{val:l.priority||'High',select:['High','Medium','Low','Zero']})}
+      </div>
+      ${field('Agent in charge','f_agent',{val:l.agent||'',select:['','Jason','Belle','Treece']})}
+      <p class="noteshint">🗒 Add dated notes anytime using the Notes button in the table.</p>
+      <div class="calc"><span class="cl">Target fee</span><span class="cv" id="calcOut">RM 0</span></div>`;
+  }
+  sheet.innerHTML=`<div class="sheet-h"><h3 style="opacity:0">.</h3><button class="x" onclick="closeForm()" aria-label="Close">×</button></div>
+    <form id="theForm" onsubmit="return submitForm(event,'${kind}','${id||''}')">${html}
+    <button type="submit" class="save">${editing?'Save changes':(moveFrom?(kind==='collected'?'Mark as won':'Move to pipeline'):'Add to tracker')}</button></form>`;
+  // put real title
+  sheet.querySelector('.sheet-h h3').outerHTML=sheet.querySelector('form h3').outerHTML;
+  sheet.querySelector('form h3').style.display='none';
+  overlay.classList.add('on');
+  // live calc
+  if(kind==='forecast'){const u=()=>document.getElementById('calcOut').textContent=fmtRM(gn('f_grossEst')*gn('f_prob')/100);
+    ['f_grossEst','f_prob'].forEach(i=>document.getElementById(i).addEventListener('input',u));u();}
+  if(kind==='listings'){const u=()=>document.getElementById('calcOut').textContent=fmtRM(gn('f_price')*gn('f_rate')/100);
+    ['f_price','f_rate'].forEach(i=>document.getElementById(i).addEventListener('input',u));u();}
+  setTimeout(()=>{const fp=document.getElementById('f_prop');if(fp)fp.focus();},120);
+}
+function find(kind,id){return state[kind].find(x=>x.id===id);}
+let moveCarry=null;
+function toPipeline(id){const l=find('listings',id);if(!l)return;
+  moveCarry={_rate:l.rate,_priority:l.priority,_agent:l.agent,remarks:notesOf(l).map(n=>({...n}))};
+  openForm('forecast',null,{prop:l.prop,type:l.type,ptype:l.ptype,value:l.price,grossEst:l.fee,prob:30,stage:'Viewing 1',keyin:l.keyin},{kind:'listings',id});}
+function toCollected(id){const f=find('forecast',id);if(!f)return;
+  moveCarry={remarks:notesOf(f).map(n=>({...n}))};
+  openForm('collected',null,{prop:f.prop,type:f.type,gross:f.grossEst,fee:f.grossEst,keyin:f.keyin||'',date:new Date().toISOString().slice(0,10)},{kind:'forecast',id});}
+async function toListingsBack(id){const f=find('forecast',id);if(!f)return;
+  if(!confirm('Move "'+f.prop+'" back to Potential Listings? It leaves the pipeline.'))return;
+  const price=+f.value||0, fee=+f.grossEst||0;
+  state.listings.push({id:uid(),prop:f.prop,type:f.type,ptype:f.ptype||f._ptype||'',price,
+    rate:(f._rate!=null&&f._rate!=='')?f._rate:(price?+(fee/price*100).toFixed(2):0),
+    fee,priority:f._priority||'Medium',agent:f._agent||'',keyin:f.keyin||'',remarks:notesOf(f).map(n=>({...n}))});
+  state.forecast=state.forecast.filter(x=>x.id!==id);
+  await save();toast('Moved back to potential listings');renderDash();renderView();}
+async function toInactive(id){const l=find('listings',id);if(!l)return;
+  const {id:_,...rest}=l;
+  state.inactive.push({id:uid(),...rest,status:rest.status||'KIV'});
+  state.listings=state.listings.filter(x=>x.id!==id);
+  await save();toast('Moved to inactive');renderDash();renderView();}
+async function toActive(id){const l=find('inactive',id);if(!l)return;
+  const {id:_,status,...rest}=l;
+  state.listings.push({id:uid(),...rest});
+  state.inactive=state.inactive.filter(x=>x.id!==id);
+  await save();toast('Reactivated to potential listings');renderDash();renderView();}
+
+async function submitForm(e,kind,id){
+  e.preventDefault();
+  let obj;
+  if(kind==='collected'){
+    if(!gv('f_prop')||!gn('f_fee')){toast('Add a property and the fee collected');return false;}
+    obj={prop:gv('f_prop'),agent:gv('f_agent'),type:gv('f_type'),keyin:gv('f_keyin'),atp:gv('f_atp'),spa:gv('f_spa'),handover:gv('f_handover'),gross:gn('f_gross'),referral:gn('f_referral'),fee:gn('f_fee'),date:gv('f_date')};
+  }
+  if(kind==='forecast'){
+    if(!gv('f_prop')){toast('Add a property');return false;}
+    obj={prop:gv('f_prop'),type:gv('f_type'),ptype:gv('f_ptype'),stage:gv('f_stage'),keyin:gv('f_keyin'),value:gn('f_value'),grossEst:gn('f_grossEst'),prob:gn('f_prob'),close:gv('f_close')};
+  }
+  if(kind==='listings'){
+    if(!gv('f_prop')){toast('Add a property');return false;}
+    obj={prop:gv('f_prop'),type:gv('f_type'),ptype:gv('f_ptype'),keyin:gv('f_keyin'),price:gn('f_price'),rate:gn('f_rate'),fee:Math.round(gn('f_price')*gn('f_rate')/100),priority:gv('f_priority'),agent:gv('f_agent')};
+  }
+  if(id){Object.assign(find(kind,id),obj);toast('Saved');}
+  else{
+    obj.id=uid();
+    if(pendingMove&&moveCarry)Object.assign(obj,moveCarry);
+    state[kind].push(obj);
+    if(pendingMove){
+      state[pendingMove.kind]=state[pendingMove.kind].filter(x=>x.id!==pendingMove.id);
+      toast(kind==='forecast'?'Moved to pipeline':'Marked as won — added to collected fees');
+    }else toast('Added to tracker');
+  }
+  pendingMove=null;moveCarry=null;
+  await save();closeForm();renderDash();renderView();
+  return false;
+}
+async function del(kind,id){
+  const item=find(kind,id);
+  if(!confirm('Delete "'+(item?item.prop:'this entry')+'"? This cannot be undone.'))return;
+  state[kind]=state[kind].filter(x=>x.id!==id);
+  await save();toast('Deleted');renderDash();renderView();
+}
+
+/* ---------- goal + export ---------- */
+document.getElementById('editGoal').addEventListener('click',async()=>{
+  const v=prompt('Annual sales goal (MYR):',state.goal);
+  if(v===null)return;const n=parseFloat(v.replace(/[, ]/g,''));
+  if(!n||n<=0){toast('Enter a valid number');return;}
+  state.goal=n;await save();renderDash();toast('Goal updated');
+});
+document.getElementById('exportBtn').addEventListener('click',exportExcel);
+document.getElementById('importBtn').addEventListener('click',()=>document.getElementById('excelUpload').click());
+document.getElementById('excelUpload').addEventListener('change',handleExcelUpload);
+
+/* ---------- Saved Records: manual finalized-copy backup (.json) ---------- */
+const LAST_REC_KEY='threemiles:lastRecordSaved';
+function fmtDT(iso){if(!iso)return '—';const d=new Date(iso);if(isNaN(d))return '—';
+  const p=n=>String(n).padStart(2,'0');const mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+  return `${p(d.getDate())} ${mon} ${d.getFullYear()}, ${p(d.getHours())}:${p(d.getMinutes())}`;}
+function refreshRecLast(){
+  const el=document.getElementById('recLast');if(!el)return;
+  let iso=null;try{iso=localStorage.getItem(LAST_REC_KEY);}catch(e){}
+  el.textContent=iso?('Saved '+fmtDT(iso)):'No finalized copy saved yet.';
+}
+function openRecords(){document.getElementById('recMsg').textContent='';refreshRecLast();document.getElementById('recOverlay').classList.add('on');}
+function closeRecords(){document.getElementById('recOverlay').classList.remove('on');}
+document.getElementById('recordsBtn').addEventListener('click',openRecords);
+document.getElementById('recCloseBtn').addEventListener('click',closeRecords);
+document.getElementById('recOverlay').addEventListener('click',e=>{if(e.target.id==='recOverlay')closeRecords();});
+
+document.getElementById('recSaveBtn').addEventListener('click',()=>saveFinalizedCopy(document.getElementById('recMsg')));
+document.getElementById('ebSaveBtn').addEventListener('click',()=>saveFinalizedCopy(null));
+const LAST_NAME_KEY='threemiles:lastSaverName';
+function fileSafe(s){return String(s||'').trim().replace(/[^a-zA-Z0-9]+/g,'_').replace(/^_+|_+$/g,'')||'User';}
+async function saveFinalizedCopy(msgEl){
+  let lastName='';try{lastName=localStorage.getItem(LAST_NAME_KEY)||'';}catch(e){}
+  const who=prompt('Your name (for the saved file name):',lastName);
+  if(who===null)return;                          // cancelled
+  try{localStorage.setItem(LAST_NAME_KEY,who);}catch(e){}
+  await commitAndSave();
+  const now=new Date(),stamp=now.toISOString();
+  const p=n=>String(n).padStart(2,'0');
+  const datePart=''+now.getFullYear()+p(now.getMonth()+1)+p(now.getDate());
+  const timePart=p(now.getHours())+p(now.getMinutes());
+  const fname='ThreeMiles_Record_'+datePart+'_'+timePart+'_'+fileSafe(who)+'.json';
+  const payload={app:'ThreeMiles Sales Tracker',savedAt:stamp,savedBy:who,data:state};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=fname;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+  try{localStorage.setItem(LAST_REC_KEY,stamp);}catch(e){}
+  refreshRecLast();
+  if(msgEl)msgEl.textContent='Saved as '+fname;
+  toast('Finalized copy saved');
+}
+
+document.getElementById('recLoadBtn').addEventListener('click',()=>document.getElementById('recUpload').click());
+document.getElementById('recUpload').addEventListener('change',ev=>loadRecordFile(ev,document.getElementById('recMsg'),()=>closeRecords()));
+
+/* shared: parse + confirm + apply a saved-record .json file, used by both the
+   landing page and the in-app Save/ Load Records panel */
+function loadRecordFile(ev,msgEl,onDone){
+  const file=ev.target.files&&ev.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      const parsed=JSON.parse(e.target.result);
+      const data=parsed&&parsed.data?parsed.data:parsed;   // accept either {data:...} wrapper or a raw state object
+      if(!data||typeof data!=='object'||!Array.isArray(data.collected)){
+        throw new Error('This file does not look like a ThreeMiles record.');
+      }
+      const when=parsed.savedAt?fmtDT(parsed.savedAt):'unknown date';
+      const by=parsed.savedBy?(' by '+parsed.savedBy):'';
+      if(!confirm('Load this saved record (from '+when+by+')?\n\nThis will REPLACE all current data with the contents of the file. Continue?')){ev.target.value='';return;}
+      state=data;
+      if(!state.collected)state.collected=[];
+      if(!state.forecast)state.forecast=[];
+      if(!state.listings)state.listings=[];
+      if(!state.inactive)state.inactive=[];
+      if(state.period===undefined)state.period=new Date().getFullYear();
+      await save();
+      if(msgEl){msgEl.style.color='var(--green-deep)';msgEl.textContent='Record loaded.';}
+      toast('Saved record loaded');
+      renderPeriodOptions();renderDash();renderView();
+      if(onDone)onDone();
+    }catch(err){
+      if(msgEl){msgEl.style.color='var(--danger)';msgEl.textContent='Could not load that file — '+err.message;}
+      else alert('Could not load that file — '+err.message);
+    }
+    ev.target.value='';
+  };
+  reader.readAsText(file);
+}
+
+/* ---------- Excel import (matches the app's own Download Excel format) ---------- */
+function findCol(headers,candidates,exclude){
+  for(let i=0;i<headers.length;i++){
+    const h=String(headers[i]||'').toLowerCase();
+    if(exclude&&exclude.some(x=>h.includes(x)))continue;
+    if(candidates.some(c=>h.includes(c)))return i;
+  }
+  return -1;
+}
+function excelDateToISO(v){
+  if(v==null||v==='')return '';
+  if(v instanceof Date&&!isNaN(v)){const p=n=>String(n).padStart(2,'0');return v.getFullYear()+'-'+p(v.getMonth()+1)+'-'+p(v.getDate());}
+  if(typeof v==='number'){
+    try{const o=XLSX.SSF.parse_date_code(v);if(o)return o.y+'-'+String(o.m).padStart(2,'0')+'-'+String(o.d).padStart(2,'0');}catch(e){}
+  }
+  if(typeof v==='string'){
+    const s=v.trim();
+    let m=s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+    m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+  }
+  return '';
+}
+const numFrom=v=>{if(v==null||v==='')return 0;const n=Number(String(v).replace(/[, ]/g,''));return isNaN(n)?0:n;};
+const strFrom=v=>(v==null?'':String(v).trim());
+const typeFrom=v=>{const s=strFrom(v).toLowerCase();return s.startsWith('rent')?'Rent':(s.startsWith('sale')?'Sale':'Sale');};
+function sheetRows(wb,nameMatch){
+  const name=wb.SheetNames.find(n=>n.toLowerCase().replace(/[^a-z]/g,'')===nameMatch);
+  if(!name)return null;
+  const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true,defval:''});
+  if(!aoa.length)return {headers:[],rows:[]};
+  const headers=aoa[0];
+  const rows=[];
+  for(let i=1;i<aoa.length;i++){
+    const r=aoa[i];
+    if(!r||r.every(c=>c===''||c==null))break;   // stop at the blank row before TOTAL
+    rows.push(r);
+  }
+  return {headers,rows};
+}
+function handleExcelUpload(ev){
+  const file=ev.target.files&&ev.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+      const built={collected:null,forecast:null,listings:null,inactive:null};
+
+      const cS=sheetRows(wb,'collectedfees');
+      if(cS&&cS.rows.length){
+        const h=cS.headers;
+        const iProp=findCol(h,['property','listing']),iAgent=findCol(h,['agent']),
+          iType=findCol(h,['transaction type','type'],['property type']),
+          iAtp=findCol(h,['atp','atr']),iSpa=findCol(h,['spa','stamp']),iHand=findCol(h,['handover']),
+          iGross=findCol(h,['gci','gross commission']),iRef=findCol(h,['referral']),
+          iFee=findCol(h,['fee collected']),iDate=findCol(h,['date collected']),
+          iKeyin=findCol(h,['key in date','key-in']),iRemarks=findCol(h,['remarks']);
+        built.collected=cS.rows.filter(r=>strFrom(r[iProp])).map(r=>({
+          id:uid(),prop:strFrom(r[iProp]),agent:strFrom(r[iAgent]),type:typeFrom(r[iType]),
+          atp:excelDateToISO(r[iAtp]),spa:excelDateToISO(r[iSpa]),handover:excelDateToISO(r[iHand]),
+          gross:numFrom(r[iGross]),referral:numFrom(r[iRef]),fee:numFrom(r[iFee]),
+          date:excelDateToISO(r[iDate]),keyin:excelDateToISO(r[iKeyin]),remarks:strFrom(r[iRemarks])
+        }));
+      }
+      const fS=sheetRows(wb,'forecastpipeline');
+      if(fS&&fS.rows.length){
+        const h=fS.headers;
+        const iProp=findCol(h,['property']),iType=findCol(h,['type'],['property type']),
+          iPtype=findCol(h,['property type']),iKeyin=findCol(h,['key in date']),
+          iValue=findCol(h,['est. value','est value','estimated value']),
+          iGrossEst=findCol(h,['gross fee est','fee est']),iProb=findCol(h,['probability']),
+          iStage=findCol(h,['stage']),iRemarks=findCol(h,['remarks']);
+        built.forecast=fS.rows.filter(r=>strFrom(r[iProp])).map(r=>({
+          id:uid(),prop:strFrom(r[iProp]),type:typeFrom(r[iType]),ptype:iPtype>=0?strFrom(r[iPtype]):'',
+          keyin:excelDateToISO(r[iKeyin]),value:numFrom(r[iValue]),grossEst:numFrom(r[iGrossEst]),
+          prob:numFrom(r[iProb]),stage:strFrom(r[iStage])||'Viewing 1',remarks:strFrom(r[iRemarks])
+        }));
+      }
+      const lS=sheetRows(wb,'potentiallistings');
+      if(lS&&lS.rows.length){
+        const h=lS.headers;
+        const iProp=findCol(h,['property']),iType=findCol(h,['type'],['property type']),
+          iPtype=findCol(h,['property type']),iPrice=findCol(h,['asking price']),
+          iRate=findCol(h,['fee rate','rate %']),iFee=findCol(h,['target fee']),
+          iPriority=findCol(h,['priority']),iAgent=findCol(h,['agent']),
+          iKeyin=findCol(h,['key in date']),iRemarks=findCol(h,['remarks']);
+        built.listings=lS.rows.filter(r=>strFrom(r[iProp])).map(r=>({
+          id:uid(),prop:strFrom(r[iProp]),type:typeFrom(r[iType]),ptype:strFrom(r[iPtype]),
+          price:numFrom(r[iPrice]),rate:numFrom(r[iRate]),fee:numFrom(r[iFee]),
+          priority:strFrom(r[iPriority])||'Medium',agent:strFrom(r[iAgent]),
+          keyin:excelDateToISO(r[iKeyin]),remarks:strFrom(r[iRemarks])
+        }));
+      }
+      const iS=sheetRows(wb,'inactivelistings');
+      if(iS&&iS.rows.length){
+        const h=iS.headers;
+        const iProp=findCol(h,['property']),iStatus=findCol(h,['status']),
+          iType=findCol(h,['type'],['property type']),iPtype=findCol(h,['property type']),
+          iPrice=findCol(h,['asking price']),iFee=findCol(h,['target fee']),
+          iAgent=findCol(h,['agent']),iRemarks=findCol(h,['remarks']);
+        built.inactive=iS.rows.filter(r=>strFrom(r[iProp])).map(r=>({
+          id:uid(),prop:strFrom(r[iProp]),status:strFrom(r[iStatus])||'KIV',type:typeFrom(r[iType]),
+          ptype:strFrom(r[iPtype]),price:numFrom(r[iPrice]),fee:numFrom(r[iFee]),
+          agent:strFrom(r[iAgent]),remarks:strFrom(r[iRemarks])
+        }));
+      }
+
+      const found=Object.entries(built).filter(([,v])=>v&&v.length);
+      if(!found.length){alert('No matching sheets found. Expected sheet names: "Collected Fees", "Forecast Pipeline", "Potential Listings", "Inactive Listings" (same as the Download Excel file).');ev.target.value='';return;}
+      const summary=found.map(([k,v])=>`• ${k[0].toUpperCase()+k.slice(1)}: ${v.length} row${v.length!==1?'s':''}`).join('\n');
+      if(!confirm('Ready to import:\n\n'+summary+'\n\nThis will REPLACE the existing data in the matching tab(s). Continue?')){ev.target.value='';return;}
+
+      found.forEach(([k,v])=>{state[k]=v;});
+      await save();
+      toast('Excel data imported');
+      renderPeriodOptions();renderDash();renderView();
+    }catch(err){
+      alert('Could not read that file. Please make sure it is a .xlsx file in the same format as Download Excel.\n\n'+err.message);
+    }
+    ev.target.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+document.getElementById('pdfBtn').addEventListener('click',exportPDF);
+function exportPDF(){
+  if(!window.jspdf||!window.jspdf.jsPDF){toast('PDF library still loading — try again');return;}
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape',unit:'pt',format:'a4'});
+  if(typeof doc.autoTable!=='function'){toast('PDF table plugin not loaded');return;}
+  const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=40,topY=50;
+  const today=new Date().toISOString().slice(0,10);
+  const INK=[15,20,23],GREEN=[10,92,52],GREEN2=[15,138,77],MUT=[120,128,124],LINE=[224,228,226],ZEB=[245,247,246];
+  const xd=s=>(!s||s==='N/A')?'':dispDate(s);
+  const periodTxt=state.period==='all'?'All years':'FY '+state.period;
+
+  // totals (all data)
+  const totCol=state.collected.reduce((a,b)=>a+(+b.fee||0),0);
+  const fcW=sumForecast(),fcGross=state.forecast.reduce((a,b)=>a+(+b.grossEst||0),0);
+  const potAll=sumPotential(),potHM=sumPotentialHM();
+  const tlv=potAll+fcGross+totCol;
+  const closing=tlv>0?(totCol/tlv*100).toFixed(1):'0.0';
+  const goal=state.goal;
+  // run-rate
+  const now=new Date(),curY=now.getFullYear();
+  const remaining=12-now.getMonth();const shortfall=Math.max(0,goal-totCol);
+
+  let cursorY=topY;
+  function ensure(h){if(cursorY+h>H-40){doc.addPage();cursorY=topY;}}
+  function sectionTitle(t){
+    ensure(40);
+    doc.setFillColor(...INK);doc.rect(M,cursorY,W-2*M,20,'F');
+    doc.setFillColor(...GREEN2);doc.rect(M,cursorY,4,20,'F');
+    doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(10);
+    doc.text(t,M+12,cursorY+14);
+    cursorY+=28;
+  }
+  function table(head,body,colStyles,foot){
+    doc.autoTable({
+      startY:cursorY,
+      head:head?[head]:undefined,body,foot:foot?[foot]:undefined,
+      theme:'grid',
+      styles:{font:'helvetica',fontSize:7,cellPadding:3,overflow:'linebreak',lineColor:LINE,lineWidth:0.5,textColor:[20,24,28],valign:'middle'},
+      headStyles:{fillColor:GREEN,textColor:255,fontStyle:'bold',fontSize:7},
+      footStyles:{fillColor:[235,240,237],textColor:INK,fontStyle:'bold',fontSize:7},
+      alternateRowStyles:{fillColor:ZEB},
+      columnStyles:colStyles||{},
+      margin:{left:M,right:M,top:topY,bottom:40}
+    });
+    cursorY=doc.lastAutoTable.finalY+18;
+  }
+
+  /* ---- COVER ---- */
+  try{const logo=document.getElementById('brandLogo');if(logo&&logo.src)doc.addImage(logo.src,'PNG',M,36,52,40);}catch(e){}
+  doc.setTextColor(...INK);doc.setFont('helvetica','bold');doc.setFontSize(22);
+  doc.text('Sales Performance Report',M,108);
+  doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(...MUT);
+  doc.text('ThreeMiles   ·   '+periodTxt+'   ·   Generated '+dispDate(today),M,128);
+  doc.setDrawColor(...GREEN2);doc.setLineWidth(2);doc.line(M,140,W-M,140);
+  cursorY=160;
+
+  /* ---- EXECUTIVE SUMMARY ---- */
+  sectionTitle('Executive Summary');
+  const sBody=[
+    ['Annual goal','RM '+fmt(goal)],
+    ['Total fees collected (all years)','RM '+fmt(totCol)],
+    ['% of annual goal',(totCol/goal*100).toFixed(1)+'%'],
+    ['Weighted forecast','RM '+fmt(fcW)],
+    ['Potential fees (High & Medium priority)','RM '+fmt(potHM)],
+    ['Total listing value (potential + forecast gross + collected)','RM '+fmt(tlv)],
+    ['Closing rate (collected ÷ total listing value)',closing+'%'],
+  ];
+  if(shortfall>0&&remaining>0)sBody.push(['Monthly target to reach goal ('+remaining+' months left in '+curY+')','RM '+fmt(shortfall/remaining)+' / month']);
+  table(null,sBody,{0:{cellWidth:340,fontStyle:'bold',textColor:INK},1:{halign:'right',textColor:GREEN}});
+
+  // GCI by agent + by type + priority — compact side tables
+  const agentM={},typeM={Sale:0,Rent:0};
+  state.collected.forEach(c=>{const a=(c.agent||'').trim()||'Unassigned';agentM[a]=(agentM[a]||0)+(+c.gross||0);if(c.type==='Rent')typeM.Rent+=(+c.gross||0);else typeM.Sale+=(+c.gross||0);});
+  sectionTitle('Gross Commission Income (GCI)');
+  const br=[];
+  Object.entries(agentM).sort((a,b)=>b[1]-a[1]).forEach(([a,v])=>br.push(['GCI · Agent '+a,'RM '+fmt(v)]));
+  br.push(['GCI · Sale','RM '+fmt(typeM.Sale)]);
+  br.push(['GCI · Rent','RM '+fmt(typeM.Rent)]);
+  table(null,br,{0:{cellWidth:340,fontStyle:'bold',textColor:INK},1:{halign:'right'}});
+
+  /* ---- COLLECTED FEES ---- */
+  sectionTitle('Collected Fees');
+  const cCol=state.collected.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const cHead=['No.','Property / Listing Name','Agent','Type','ATP/ATR','SPA/TA','Handover','GCI (MYR)','Referral','Fee Collected','Date Coll.','Month','Remarks'];
+  const cBody=cCol.map((c,i)=>[i+1,c.prop,c.agent||'',c.type||'',xd(c.atp),xd(c.spa),xd(c.handover),fmt(c.gross),fmt(c.referral),fmt(c.fee),xd(c.date),monthName(c.date),notesText(c)]);
+  table(cHead,cBody,{0:{cellWidth:22,halign:'center'},1:{cellWidth:120},7:{halign:'right'},8:{halign:'right'},9:{halign:'right',textColor:GREEN},12:{cellWidth:90}},
+    [{content:'TOTAL FEES COLLECTED',colSpan:9,styles:{halign:'right'}},{content:'RM '+fmt(totCol),styles:{halign:'right'}},'','','']);
+
+  /* ---- FORECAST PIPELINE ---- */
+  sectionTitle('Forecast Pipeline');
+  const fH=['Property','Type','Key in','Est. Value','Gross Fee Est.','Prob %','Weighted Fee','Stage','Remarks'];
+  const fB=state.forecast.slice().sort(bySsDesc).map(f=>[f.prop,f.type,xd(f.keyin),fmt(f.value),fmt(f.grossEst),(f.prob||0)+'%',fmt(Math.round(weighted(f))),f.stage||'',notesText(f)]);
+  table(fH,fB,{0:{cellWidth:150},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'},6:{halign:'right',textColor:[150,110,20]},8:{cellWidth:110}},
+    [{content:'TOTAL WEIGHTED FORECAST',colSpan:6,styles:{halign:'right'}},{content:'RM '+fmt(Math.round(fcW)),styles:{halign:'right'}},'','']);
+
+  /* ---- POTENTIAL LISTINGS ---- */
+  sectionTitle('Potential Listings');
+  const lH=['Property','Type','Property Type','Asking Price','Rate %','Priority','Agent','Key in','Remarks'];
+  const lB=state.listings.slice().sort(bySsDesc).map(l=>[l.prop,l.type,l.ptype||'',fmt(l.price),(l.rate||0)+'%',effPri(l),l.agent||'',xd(l.keyin),notesText(l)]);
+  table(lH,lB,{0:{cellWidth:150},3:{halign:'right'},8:{cellWidth:120}});
+
+  /* ---- INACTIVE ---- */
+  sectionTitle('Inactive / KIV / Sold by others');
+  const iB=state.inactive.slice().sort(bySsDesc).map(l=>[l.prop,l.status||'',l.type,l.ptype||'',fmt(l.price),l.agent||'',notesText(l)]);
+  if(iB.length)table(['Property','Status','Type','Property Type','Asking Price','Agent','Remarks'],iB,{0:{cellWidth:160},4:{halign:'right'},6:{cellWidth:130}});
+  else{ensure(24);doc.setFont('helvetica','italic');doc.setFontSize(8);doc.setTextColor(...MUT);doc.text('No inactive listings.',M,cursorY);cursorY+=20;}
+
+  /* ---- footers + running header ---- */
+  const pages=doc.getNumberOfPages();
+  for(let i=1;i<=pages;i++){
+    doc.setPage(i);
+    if(i>1){
+      doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(...MUT);
+      doc.text('ThreeMiles — Sales Performance Report',M,30);
+      doc.setFont('helvetica','normal');doc.text(periodTxt+' · '+dispDate(today),W-M,30,{align:'right'});
+      doc.setDrawColor(...LINE);doc.setLineWidth(0.5);doc.line(M,36,W-M,36);
+    }
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(150,156,152);
+    doc.text('ThreeMiles · Confidential',M,H-18);
+    doc.text('Page '+i+' of '+pages,W-M,H-18,{align:'right'});
+    doc.setDrawColor(...LINE);doc.setLineWidth(0.5);doc.line(M,H-30,W-M,H-30);
+  }
+  doc.save('ThreeMiles_Sales_Report_'+today+'.pdf');
+  toast('PDF saved');
+}
+const xd=s=>(!s||s==='N/A')?'':dispDate(s);
+function exportExcel(){
+  if(typeof XLSX==='undefined'){exportCSV();return;}
+  const wb=XLSX.utils.book_new();
+  const today=new Date().toISOString().slice(0,10);
+  const col=state.collected.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const goal=state.goal;
+  const totCol=state.collected.reduce((a,b)=>a+(+b.fee||0),0);
+
+  // by-year collected
+  const byYear={};
+  state.collected.forEach(c=>{const y=yearOf(c.date)||'No date';byYear[y]=(byYear[y]||0)+(+c.fee||0);});
+  // by-agent gross
+  const byAgent={};
+  state.collected.forEach(c=>{const a=(c.agent||'').trim()||'Unassigned';byAgent[a]=(byAgent[a]||0)+(+c.gross||0);});
+
+  // SUMMARY
+  const sum=[
+    ['THREEMILES — SALES TRACKER'],
+    ['Generated',xd(today)],
+    [],
+    ['Annual goal (MYR)',goal],
+    ['Total fees collected — all years (MYR)',totCol],
+    ['Weighted forecast (MYR)',Math.round(sumForecast())],
+    ['Potential target fees (MYR)',Math.round(sumPotential())],
+    [],
+    ['FEES COLLECTED BY YEAR'],
+    ['Year','Fee collected (MYR)'],
+    ...Object.keys(byYear).sort().map(y=>[y,Math.round(byYear[y])]),
+    [],
+    ['GROSS COMMISSION BY AGENT IN CHARGE (all years)'],
+    ['Agent','Gross commission (MYR)'],
+    ...Object.entries(byAgent).sort((a,b)=>b[1]-a[1]).map(([a,v])=>[a,Math.round(v)]),
+  ];
+  const wsS=XLSX.utils.aoa_to_sheet(sum);
+  wsS['!cols']=[{wch:42},{wch:24}];
+  XLSX.utils.book_append_sheet(wb,wsS,'Summary');
+
+  // COLLECTED FEES
+  const cHead=['No. #','Listing Ref # Property / Listing Name','Agent Incharge','Transaction Type','ATP/ATR Date','SPA/TA Stamp Date','Handover Date','Gross Commission Income GCI (MYR)','Referral Fee (MYR)','Fee Collected (MYR)','Date Collected','Month','Key in Date','Remarks'];
+  const cRows=col.map((c,i)=>[i+1,c.prop,c.agent,c.type,xd(c.atp),xd(c.spa),xd(c.handover),+c.gross||0,+c.referral||0,+c.fee||0,xd(c.date),monthName(c.date),xd(c.keyin),notesText(c)]);
+  cRows.push([]);cRows.push(['','','','','','','TOTAL','','',totCol]);
+  const wsC=XLSX.utils.aoa_to_sheet([cHead,...cRows]);
+  wsC['!cols']=[{wch:6},{wch:34},{wch:14},{wch:14},{wch:14},{wch:16},{wch:14},{wch:18},{wch:14},{wch:16},{wch:14},{wch:8},{wch:13},{wch:26}];
+  XLSX.utils.book_append_sheet(wb,wsC,'Collected Fees');
+
+  // FORECAST PIPELINE
+  const fHead=['Property','Type','Key in Date','Est. Value (MYR)','Gross Fee Est. (MYR)','Probability %','Weighted Fee (MYR)','Stage','Remarks'];
+  const fRows=state.forecast.slice().sort(bySsDesc).map(f=>[f.prop,f.type,xd(f.keyin),+f.value||0,+f.grossEst||0,+f.prob||0,Math.round(weighted(f)),f.stage||'',notesText(f)]);
+  fRows.push([]);fRows.push(['','','','','','TOTAL',Math.round(sumForecast())]);
+  const wsF=XLSX.utils.aoa_to_sheet([fHead,...fRows]);
+  wsF['!cols']=[{wch:30},{wch:8},{wch:13},{wch:18},{wch:20},{wch:13},{wch:18},{wch:15},{wch:26}];
+  XLSX.utils.book_append_sheet(wb,wsF,'Forecast Pipeline');
+
+  // POTENTIAL LISTINGS
+  const lHead=['Property','Type','Property Type','Asking Price (MYR)','Fee Rate %','Target Fee (MYR)','Priority','Agent','Key in Date','Days with us','Remarks'];
+  const lRows=state.listings.slice().sort(bySsDesc).map(l=>{const dd=l.keyin?daysBetween(l.keyin,today):'';return [l.prop,l.type,l.ptype||'',+l.price||0,+l.rate||0,+l.fee||0,l.priority||'',l.agent||'',xd(l.keyin),dd===''?'':dd,notesText(l)];});
+  lRows.push([]);lRows.push(['','','','','','TOTAL',Math.round(sumPotential())]);
+  const wsL=XLSX.utils.aoa_to_sheet([lHead,...lRows]);
+  wsL['!cols']=[{wch:30},{wch:8},{wch:18},{wch:18},{wch:11},{wch:18},{wch:10},{wch:14},{wch:13},{wch:12},{wch:26}];
+  XLSX.utils.book_append_sheet(wb,wsL,'Potential Listings');
+
+  // INACTIVE / KIV / SOLD
+  const iHead=['Property','Status','Type','Property Type','Target Fee (MYR)','Priority','Agent','Key in Date','Remarks'];
+  const iRows=state.inactive.slice().sort(bySsDesc).map(l=>[l.prop,l.status||'',l.type,l.ptype||'',+l.fee||0,l.priority||'',l.agent||'',xd(l.keyin),notesText(l)]);
+  const wsI=XLSX.utils.aoa_to_sheet([iHead,...iRows]);
+  wsI['!cols']=[{wch:30},{wch:14},{wch:8},{wch:18},{wch:18},{wch:10},{wch:14},{wch:13},{wch:26}];
+  XLSX.utils.book_append_sheet(wb,wsI,'Inactive Listings');
+
+  // DEAL CYCLE
+  const cyHead=['No.','Property','Key-in → ATP/ATR (days)','ATP → SPA/TA (days)','ATP → Handover (days)','ATP → Fee Collected (days)'];
+  const cyRows=col.map((c,i)=>{const g=(a,b)=>{const d=daysBetween(a,b);return d==null?'':d;};
+    return [i+1,c.prop,g(c.keyin,c.atp),g(c.atp,c.spa),g(c.atp,c.handover),g(c.atp,c.date)];});
+  const wsCy=XLSX.utils.aoa_to_sheet([cyHead,...cyRows]);
+  wsCy['!cols']=[{wch:5},{wch:34},{wch:22},{wch:20},{wch:20},{wch:24}];
+  XLSX.utils.book_append_sheet(wb,wsCy,'Deal Cycle');
+
+  XLSX.writeFile(wb,'ThreeMiles_Sales_Tracker_'+today+'.xlsx');
+  toast('Excel downloaded');
+}
+function csvRow(arr){return arr.map(v=>{v=v==null?'':String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}).join(',');}
+function exportCSV(){
+  let out='THREEMILES SALES TRACKER\nAnnual Goal,'+state.goal+'\n\n';
+  out+='COLLECTED FEES\n'+csvRow(['No.','Property / Listing Name','Agent Incharge','Transaction Type','ATP/ATR Date','SPA/TA Stamp Date','Handover Date','Gross Commission Income GCI (MYR)','Referral Fee (MYR)','Fee Collected (MYR)','Date Collected','Month','Key in Date','Remarks'])+'\n';
+  state.collected.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).forEach((c,i)=>out+=csvRow([i+1,c.prop,c.agent,c.type,xd(c.atp),xd(c.spa),xd(c.handover),c.gross,c.referral,c.fee,xd(c.date),monthName(c.date),xd(c.keyin),notesText(c)])+'\n');
+  out+='\nFORECAST PIPELINE\n'+csvRow(['Property','Type','Key in Date','Est Value','Gross Fee Est','Probability %','Weighted Fee','Stage','Expected Close'])+'\n';
+  state.forecast.forEach(f=>out+=csvRow([f.prop,f.type,xd(f.keyin),f.value,f.grossEst,f.prob,Math.round(weighted(f)),f.stage,f.close])+'\n');
+  out+='\nPOTENTIAL LISTINGS\n'+csvRow(['Property','Type','Property Type','Asking Price','Fee Rate %','Target Fee','Priority','Agent','Key in Date'])+'\n';
+  state.listings.forEach(l=>out+=csvRow([l.prop,l.type,l.ptype,l.price,l.rate,l.fee,l.priority,l.agent,xd(l.keyin)])+'\n');
+  const blob=new Blob([out],{type:'text/csv'});const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download='ThreeMiles_Sales_Tracker.csv';a.click();
+  toast('CSV exported (Excel unavailable)');
+}
+
+/* ---------- period selector ---------- */
+function renderPeriodOptions(){
+  const sel=document.getElementById('periodSel');
+  const years=availableYears();
+  const opts=[`<option value="all">All years</option>`].concat(
+    years.map(y=>`<option value="${y}">FY ${y}</option>`));
+  sel.innerHTML=opts.join('');
+  sel.value=String(state.period);
+}
+document.getElementById('periodSel').addEventListener('change',async e=>{
+  const v=e.target.value;
+  state.period=(v==='all')?'all':parseInt(v,10);
+  await save();renderDash();renderView();
+});
+
+/* ---------- tabs + toast ---------- */
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected','false'));
+  t.setAttribute('aria-selected','true');tab=t.dataset.tab;renderView();
+}));
+let toastT;function toast(m){const el=document.getElementById('toast');el.textContent=m;el.classList.add('on');
+  clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('on'),2200);}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeForm();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state)renderDash();});
+window.addEventListener('focus',()=>{if(state)renderDash();});
+
+/* ---------- access gate + activity log ---------- */
+/* ---------- boot: no login — straight into the app ---------- */
+async function commitAndSave(){try{if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();}catch(e){}await save();}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)commitAndSave();});
+window.addEventListener('beforeunload',commitAndSave);
+/* Reminder pop-up before leaving the page — nudges toward a Saved Records (.json) backup.
+   Browsers show their own generic confirmation text, but the dialog itself does pop up. */
+window.addEventListener('beforeunload',e=>{
+  e.preventDefault();
+  e.returnValue='Your edits auto-save on this device, but for a portable backup, save a Finalized Copy (.json) under Saved Records before you go.';
+  return e.returnValue;
+});
+
+/* ---------- landing page ---------- */
+function enterApp(){
+  document.getElementById('landing').style.display='none';
+  document.getElementById('app').style.display='';
+  document.getElementById('exitBanner').classList.add('show');
+  renderPeriodOptions();renderDash();renderView();
+}
+document.getElementById('landingLoadBtn').addEventListener('click',()=>document.getElementById('landingUpload').click());
+document.getElementById('landingUpload').addEventListener('change',ev=>loadRecordFile(ev,document.getElementById('landingMsg'),()=>enterApp()));
+
+(async()=>{
+  await load();
+  try{const bl=document.getElementById('brandLogo'),ll=document.getElementById('landingLogo');if(bl&&ll)ll.src=bl.src;}catch(e){}
+  document.getElementById('loader').classList.add('hide');
+})();
+</script>
+<script>
+/* Register service worker for offline/PWA when self-hosted (e.g. GitHub Pages). Harmless elsewhere. */
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
